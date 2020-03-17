@@ -68,7 +68,6 @@ class MITMService:
         """
         inserts this machine between target_ip and gateway_ip
         """
-        logger.info("starting spoof")
         while self._should_spoof:
             MITMService._poison_arp_cache(self.target_ip, self.target_mac, self.gateway_ip)
             MITMService._poison_arp_cache(self.gateway_ip, self.gateway_mac, self.target_ip)
@@ -82,6 +81,8 @@ class MITMService:
         MITMService._reset_arp_cache(self.gateway_ip, self.gateway_mac, self.target_ip, self.target_mac)
 
     def start_mitm(self):
+        logger.info("starting spoof")
+
         self._should_spoof = True
         self._spoof_thread = threading.Thread(target=self._run_mitm, args=())
         self._spoof_thread.start()
