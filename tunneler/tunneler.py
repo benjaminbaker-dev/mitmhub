@@ -62,6 +62,8 @@ class L2Tunnel:
             data, addr = self.raw_sock.recvfrom(MAX_BUF_SIZE)
             recv_iface, x, y, z, src_mac_addr = addr
             recv_etherheader = EtherHeader.parse_header(data[:EtherHeader.TOTAL_HEADER_LEN])
+
+            #TODO: Replace this with a bpf on the socket itself
             if recv_etherheader.src_addr not in (self.gateway_mac, self.target_mac):
                 continue
 
