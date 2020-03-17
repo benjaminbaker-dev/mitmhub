@@ -8,7 +8,7 @@ ARP_REPLY = 2
 ARP_REQUEST_TIMEOUT = 5  # seconds
 BROADCAST_MAC = "ff:ff:ff:ff:ff:ff"
 
-logging.getLogger(scapy.__name__).setLevel(logging.WARNING)
+logging.getLogger(scapy.__name__).setLevel(logging.ERROR)
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
 logger = logging.getLogger()
 
