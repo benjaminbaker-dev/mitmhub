@@ -16,17 +16,23 @@ logger = logging.getLogger()
 
 class MITMService:
     @staticmethod
-    def _get_mac(target_ip):
+    def _get_mac(target_ip, mac_resolve_max_tries):
         """
         queries network for MAC address corresponding to :param target_ip
         :param target_ip: IP address
         :return: mac address that matches :param target_ip
         """
         arp_response = None
+        try_count = 0
+
         while not arp_response:
+            if try_count > mac_resolve_max_tries:
+                raise ValueError("cannot resolve {}. are you sure it exists ?".format(target_ip))
+
             logger.info("sending who-has for {}".format(target_ip))
             arp_request = Ether(dst=BROADCAST_MAC) / ARP(op=ARP_REQUEST, pdst=target_ip)
             arp_response = srp(arp_request, timeout=ARP_REQUEST_TIMEOUT, verbose=False)[0]
+            try_count += 1
 
         target_mac = arp_response[0][0][1].hwsrc
         logger.info("got mac: {}".format(target_mac))
@@ -48,17 +54,17 @@ class MITMService:
         reset = ARP(op=ARP_REPLY, hwsrc=source_mac, psrc=source_ip, hwdst=target_mac, pdst=target_ip)
         send(reset, verbose=False)
 
-    def __init__(self, target_ip, gateway_ip, interval=5):
+    def __init__(self, target_ip, gateway_ip, interval=5, mac_resolve_max_tries=5):
         """
         :param target_ip: will intercept requests from this IP
         :param gateway_ip: will intercept responses from this IP (directed at :param target_ip)
         :param interval: how often to run arp poison
         """
         self.target_ip = target_ip
-        self.target_mac = MITMService._get_mac(self.target_ip)
+        self.target_mac = MITMService._get_mac(self.target_ip, mac_resolve_max_tries)
 
         self.gateway_ip = gateway_ip
-        self.gateway_mac = MITMService._get_mac(self.gateway_ip)
+        self.gateway_mac = MITMService._get_mac(self.gateway_ip, mac_resolve_max_tries)
 
         self.interval = interval
         self._should_spoof = False
