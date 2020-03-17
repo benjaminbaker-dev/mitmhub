@@ -15,6 +15,9 @@ def carry_around_add(a, b):
 
 def checksum(msg):
     s = 0
+    #add padding
+    if len(msg) % 2 == 1:
+        msg += b'\x00'
     for i in range(0, len(msg), 2):
         w = msg[i] + (msg[i+1] << 8)
         s = carry_around_add(s, w)
@@ -31,6 +34,10 @@ class EtherHeader:
         if len(bytes_as_str) != EtherHeader.MAC_ADDR_LEN:
             raise InvalidHWAddr('{} is not a valid mac address with divider {}'.format(str_addr, divider))
         return bytes.fromhex(" ".join(bytes_as_str))
+
+    @staticmethod
+    def get_str_from_mac_bytes(raw_bytes, divider=':'):
+        return divider.join(hex(byte)[2:].zfill(2) for byte in raw_bytes)
 
     @staticmethod
     def parse_header(raw_header_bytes):
@@ -54,6 +61,14 @@ class EtherHeader:
             self.l3_proto = struct.pack('!H', l3_proto)
         else:
             self.l3_proto = l3_proto
+
+    @property
+    def dst_addr_str(self):
+        return type(self).get_str_from_mac_bytes(self.dst_addr)
+
+    @property
+    def src_addr_str(self):
+        return type(self).get_str_from_mac_bytes(self.src_addr)
 
     def get_raw_header(self):
         return self.dst_addr + self.src_addr + self.l3_proto
@@ -87,6 +102,9 @@ class IpHeader:
         ip_header.tot_len = total_len
         ip_header.id = id
         ip_header.frag_off = frag_offset
+        ip_header.ttl = ttl
+        ip_header.proto = proto
+        ip_header.check = checksum
         ip_header.src_ip = src_ip
         ip_header.dst_ip = dst_ip
         return ip_header
@@ -111,6 +129,14 @@ class IpHeader:
         self.tot_len = self.ihl * BYTES_PER_WORD + len(payload)
         self.check = checksum(self.get_raw_header() + payload)
 
+    @property
+    def src_ip_str(self):
+        return inet_ntoa(struct.pack('!L', self.src_ip))
+
+    @property
+    def dst_ip_str(self):
+        return inet_ntoa(struct.pack('!L', self.dst_ip))
+
     def get_raw_header(self):
         raw_ip_header = struct.pack(
             type(self).RAW_HEADER_STRUCT,
@@ -129,7 +155,7 @@ class IpHeader:
 
     def __str__(self):
         return 'IP From: {} To: {}'.format(
-            inet_ntoa(struct.pack('!L', self.src_ip)),
-            inet_ntoa(struct.pack('!L', self.dst_ip)),
+            self.src_ip_str,
+            self.dst_ip_str
         )
 
