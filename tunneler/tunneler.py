@@ -5,7 +5,6 @@ import threading
 L3_PROTO_IP = 0x0800
 MAX_BUF_SIZE = 0xffffffff
 
-
 def _create_raw_ip_socket(interface):
     """
     Create a raw socket to listen for ip packets on a specific interface
@@ -14,8 +13,6 @@ def _create_raw_ip_socket(interface):
     NOTE: the socket will receive the layer 2 and 3 headers, in addition to the payload
     """
     raw_sock = socket(AF_PACKET, SOCK_RAW, L3_PROTO_IP)
-    #raw_sock.setsockopt(SOL_SOCKET, SO_RCVBUF, MAX_BUF_SIZE)
-
     raw_sock.bind((interface, L3_PROTO_IP))
 
     return raw_sock
@@ -28,9 +25,9 @@ class L2Tunnel:
         self.target_mac = target_mac
         self.gateway_mac = gateway_mac
         self.my_mac = my_mac
-        self.raw_sock = _create_raw_ip_socket(interface)
-        self.should_forward = False
-        self.forward_thread = threading.Thread(target=self.forward_loop, args=())
+        self._raw_sock = _create_raw_ip_socket(interface)
+        self._should_forward = False
+        self._forward_thread = None
 
     def repackage_frame(self, raw_frame):
         """
@@ -58,8 +55,9 @@ class L2Tunnel:
         A loop that receives raw frames and forwards them to their intended destinations
         :return: None
         """
-        while self.should_forward:
-            data, addr = self.raw_sock.recvfrom(MAX_BUF_SIZE)
+        while self._should_forward:
+            data, addr = self._raw_sock.recvfrom(MAX_BUF_SIZE)
+            # TODO: figure out what x y and z are
             recv_iface, x, y, z, src_mac_addr = addr
             recv_etherheader = EtherHeader.parse_header(data[:EtherHeader.TOTAL_HEADER_LEN])
 
@@ -72,27 +70,29 @@ class L2Tunnel:
             l3_payload = l2_payload[IpHeader.DEFAULT_HEADER_SIZE:]
 
             recv_ipheader = IpHeader.parse_header(raw_ip_header)
-            print(recv_ipheader)
 
             repackaged_frame = self.repackage_frame(data)
             try:
-                self.raw_sock.sendto(repackaged_frame, (recv_iface, x, y, x, self.my_mac))
+                self._raw_sock.sendto(repackaged_frame, (recv_iface, x, y, z, self.my_mac))
             except OSError:
-                print('Frame too long: {}'.format(len(repackaged_frame)))
+                # usually means the frame was too long to send, best effort, so ignore it and move on
+                pass
 
     def start_forward_thread(self):
         """
         Start this tunnel's forward_loop in a different thread, and signal that thread to start
         :return: None
         """
-        self.should_forward = True
-        self.forward_thread.start()
+        self._forward_thread = threading.Thread(target=self.forward_loop, args=())
+        self._should_forward = True
+        self._forward_thread.start()
 
     def stop_forward_thread(self):
         """
         Signal this tunnel's forward thread to stop and wait for it to join
         :return:
         """
-        self.should_forward = False
-        self.forward_thread.join()
+        self._should_forward = False
+        self._forward_thread.join()
+        self._forward_thread = None
 

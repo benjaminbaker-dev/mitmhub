@@ -81,6 +81,7 @@ class EtherHeader:
         return EtherHeader(src_addr, dst_addr, l3_proto)
 
     def __init__(self, src_addr, dst_addr, l3_proto):
+        # user can pass addresses as canonical strings or bytes object
         if isinstance(src_addr, str):
             self.src_addr = type(self).get_mac_bytes_from_str(src_addr)
         else:
