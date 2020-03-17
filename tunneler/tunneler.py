@@ -7,6 +7,12 @@ MAX_BUF_SIZE = 0xffffffff
 
 
 def create_raw_ip_socket(interface):
+    """
+    Create a raw socket to listen for ip packets on a specific interface
+    :param interface: the interface for the created socket to listen on
+    :return: a socket object
+    NOTE: the socket will receive the layer 2 and 3 headers, in addition to the payload
+    """
     raw_sock = socket(AF_PACKET, SOCK_RAW, L3_PROTO_IP)
     #raw_sock.setsockopt(SOL_SOCKET, SO_RCVBUF, MAX_BUF_SIZE)
 
@@ -21,9 +27,14 @@ class L2Tunnel:
         self.my_mac = my_mac
         self.raw_sock = create_raw_ip_socket(interface)
         self.should_forward = False
-        self.forward_thread = threading.Thread(target=self.forward_loop, args = ())
+        self.forward_thread = threading.Thread(target=self.forward_loop, args=())
 
     def repackage_frame(self, raw_frame):
+        """
+        Take a raw frame as bytes and change its MAC addresses according to the target and gateway mac addresses
+        :param raw_frame: the raw frame as bytes
+        :return: a bytes object of the raw bytes of the new frame (changed mac addresses)
+        """
         raw_ether_header = raw_frame[:EtherHeader.TOTAL_HEADER_LEN]
         parsed_ether_header = EtherHeader.parse_header(raw_ether_header)
 
@@ -40,6 +51,10 @@ class L2Tunnel:
         return parsed_ether_header.get_raw_header() + raw_frame[EtherHeader.TOTAL_HEADER_LEN:]
 
     def forward_loop(self):
+        """
+        A loop that receives raw frames and forwards them to their intended destinations
+        :return: None
+        """
         while self.should_forward:
             data, addr = self.raw_sock.recvfrom(MAX_BUF_SIZE)
             recv_iface, x, y, z, src_mac_addr = addr
@@ -61,10 +76,18 @@ class L2Tunnel:
                 print('Frame too long: {}'.format(len(repackaged_frame)))
 
     def start_forward_thread(self):
+        """
+        Start this tunnel's forward_loop in a different thread, and signal that thread to start
+        :return: None
+        """
         self.should_forward = True
         self.forward_thread.start()
 
     def stop_forward_thread(self):
+        """
+        Signal this tunnel's forward thread to stop and wait for it to join
+        :return:
+        """
         self.should_forward = False
         self.forward_thread.join()
 
