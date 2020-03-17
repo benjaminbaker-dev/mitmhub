@@ -6,7 +6,7 @@ L3_PROTO_IP = 0x0800
 MAX_BUF_SIZE = 0xffffffff
 
 
-def create_raw_ip_socket(interface):
+def _create_raw_ip_socket(interface):
     """
     Create a raw socket to listen for ip packets on a specific interface
     :param interface: the interface for the created socket to listen on
@@ -21,11 +21,14 @@ def create_raw_ip_socket(interface):
     return raw_sock
 
 class L2Tunnel:
+    """
+    A class for handling tunnel forwarding on layer 2
+    """
     def __init__(self, target_mac, gateway_mac, my_mac, interface):
         self.target_mac = target_mac
         self.gateway_mac = gateway_mac
         self.my_mac = my_mac
-        self.raw_sock = create_raw_ip_socket(interface)
+        self.raw_sock = _create_raw_ip_socket(interface)
         self.should_forward = False
         self.forward_thread = threading.Thread(target=self.forward_loop, args=())
 
