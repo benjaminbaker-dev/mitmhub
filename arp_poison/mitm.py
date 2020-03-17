@@ -15,22 +15,6 @@ logger = logging.getLogger()
 
 
 class MITMService:
-    def __init__(self, target_ip, gateway_ip, interval=5):
-        """
-        :param target_ip: will intercept requests from this IP
-        :param gateway_ip: will intercept responses from this IP (directed at :param target_ip)
-        :param interval: how often to run arp poison
-        """
-        self.target_ip = target_ip
-        self.target_mac = MITMService._get_mac(self.target_ip)
-
-        self.gateway_ip = gateway_ip
-        self.gateway_mac = MITMService._get_mac(self.gateway_ip)
-
-        self.interval = interval
-        self._should_spoof = False
-        self._spoof_thread = None
-
     @staticmethod
     def _get_mac(target_ip):
         """
@@ -63,6 +47,22 @@ class MITMService:
     def _reset_arp_cache(target_ip, target_mac, source_ip, source_mac):
         reset = ARP(op=ARP_REPLY, hwsrc=source_mac, psrc=source_ip, hwdst=target_mac, pdst=target_ip)
         send(reset, verbose=False)
+
+    def __init__(self, target_ip, gateway_ip, interval=5):
+        """
+        :param target_ip: will intercept requests from this IP
+        :param gateway_ip: will intercept responses from this IP (directed at :param target_ip)
+        :param interval: how often to run arp poison
+        """
+        self.target_ip = target_ip
+        self.target_mac = MITMService._get_mac(self.target_ip)
+
+        self.gateway_ip = gateway_ip
+        self.gateway_mac = MITMService._get_mac(self.gateway_ip)
+
+        self.interval = interval
+        self._should_spoof = False
+        self._spoof_thread = None
 
     def _run_mitm(self):
         """
