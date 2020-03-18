@@ -2,6 +2,7 @@ import struct
 from socket import IPPROTO_UDP, inet_aton, inet_ntoa
 
 BYTES_PER_WORD = 4
+L3_PSEUDO_HEADER_STRUCT = "!LLBBH"
 
 
 class InvalidHWAddr(Exception):
@@ -9,6 +10,15 @@ class InvalidHWAddr(Exception):
     An error to throw when an invalid mac address is passed to a function
     """
     pass
+
+
+def swap_endianess_16(a):
+    """
+    Swap the endianness of a 16 bit number
+    :param a: number to swap
+    :return: the number with the endianness swapped
+    """
+    return struct.unpack("<H", struct.pack(">H", a))[0]
 
 
 def carry_around_add(a, b):
@@ -35,10 +45,30 @@ def checksum(msg):
     for i in range(0, len(msg), 2):
         w = msg[i] + (msg[i+1] << 8)
         s = carry_around_add(s, w)
-    return ~s & 0xffff
+    csum = ~s & 0xffff
+    # the entire calculation was done in big endian, but we want it in little for our computer
+    return swap_endianess_16(csum)
+
+def generate_pseudo_header(src_ip, dst_ip, l3_proto, l3_tot_len):
+    return struct.pack(
+        L3_PSEUDO_HEADER_STRUCT,
+        struct.unpack("!L", src_ip)[0],
+        struct.unpack("!L", dst_ip)[0],
+        0,
+        l3_proto,
+        l3_tot_len
+    )
+
+class BaseProtocol:
+    def get_raw_header(self):
+        raise NotImplementedError
+
+    @property
+    def length(self):
+        raise NotImplementedError
 
 
-class EtherHeader:
+class EtherHeader(BaseProtocol):
     """
     Class for parsing and creating raw ethernet headers
     """
@@ -105,6 +135,9 @@ class EtherHeader:
     def src_addr_str(self):
         return type(self).get_str_from_mac_bytes(self.src_addr)
 
+    def length(self):
+        return type(self).TOTAL_HEADER_LEN
+
     def get_raw_header(self):
         """
         Get the raw bytes of the header
@@ -113,7 +146,7 @@ class EtherHeader:
         return self.dst_addr + self.src_addr + self.l3_proto
 
 
-class IpHeader:
+class IpHeader(BaseProtocol):
     """
     Class for parsing and creating raw IP headers
     """
@@ -144,10 +177,11 @@ class IpHeader:
         :param raw_header_bytes: raw bytes of the header
         :return:
         """
-        ip_header = IpHeader('0.0.0.0', '0.0.0.0')
+
         parsed_fields = struct.unpack(IpHeader.RAW_HEADER_STRUCT, raw_header_bytes)
         version_ihl, tos, total_len, id, frag_offset, ttl, proto, checksum, src_ip, dst_ip = parsed_fields
         version, ihl = IpHeader._get_version_ihl_from_byte(version_ihl)
+        ip_header = IpHeader(src_ip, dst_ip)
         ip_header.version = version
         ip_header.ihl = ihl
         ip_header.tos = tos
@@ -157,22 +191,31 @@ class IpHeader:
         ip_header.ttl = ttl
         ip_header.proto = proto
         ip_header.check = checksum
-        ip_header.src_ip = src_ip
-        ip_header.dst_ip = dst_ip
+
         return ip_header
 
     def __init__(self, src_ip, dst_ip, l4_proto=IPPROTO_UDP, id=0):
         self.ihl = type(self).DEFAULT_IHL
         self.version = type(self).IPV4
         self.tos = type(self).NO_FLAGS
-        self.tot_len = None  # kernel will fill the correct total length
+        self.tot_len = None
         self.id = id
         self.frag_off = type(self).NO_FRAG_OFFSET
         self.ttl = type(self).DEFAULT_TTL
         self.proto = l4_proto
-        self.check = None  # kernel will fill the correct checksum
-        self.src_ip = inet_aton(src_ip)
-        self.dst_ip = inet_aton(dst_ip)
+        self.check = None
+        if isinstance(src_ip, str):
+            self.src_ip = inet_aton(src_ip)
+        elif isinstance(src_ip, int):
+            self.src_ip = struct.pack("!L", src_ip)
+        else:
+            self.src_ip = src_ip
+        if isinstance(src_ip, str):
+            self.dst_ip = inet_aton(dst_ip)
+        elif isinstance(src_ip, int):
+            self.dst_ip = struct.pack("!L", dst_ip)
+        else:
+            self.dst_ip = dst_ip
 
     def _get_version_ihl_byte(self):
         """
@@ -181,7 +224,7 @@ class IpHeader:
         """
         return ((self.version & 0xf) << 4) | (self.ihl & 0xf)
 
-    def fill_in_payload_dependent_fields(self, payload):
+    def fill_payload_dependent_fields(self, payload):
         """
         Calculate and fill out the fields that are dependent on the l4 payload
         :param payload: the l4 payload
@@ -189,15 +232,15 @@ class IpHeader:
         """
         self.check = 0
         self.tot_len = self.ihl * BYTES_PER_WORD + len(payload)
-        self.check = checksum(self.get_raw_header() + payload)
+        self.check = checksum(self.get_raw_header())
 
     @property
     def src_ip_str(self):
-        return inet_ntoa(struct.pack('!L', self.src_ip))
+        return inet_ntoa(self.src_ip)
 
     @property
     def dst_ip_str(self):
-        return inet_ntoa(struct.pack('!L', self.dst_ip))
+        return inet_ntoa(self.dst_ip)
 
     def get_raw_header(self):
         raw_ip_header = struct.pack(
@@ -210,10 +253,13 @@ class IpHeader:
             self.ttl,
             self.proto,
             self.check,
-            self.src_ip,
-            self.dst_ip
+            struct.unpack("!L", self.src_ip)[0],
+            struct.unpack("!L", self.dst_ip)[0]
         )
         return raw_ip_header
+
+    def length(self):
+        return struct.calcsize(type(self).RAW_HEADER_STRUCT)
 
     def __str__(self):
         return 'IP From: {} To: {}'.format(
@@ -221,3 +267,90 @@ class IpHeader:
             self.dst_ip_str
         )
 
+
+class UdpHeader(BaseProtocol):
+    RAW_HEADER_STRUCT = "!HHHH"
+    UDP_HEADER_SIZE = 8
+
+    @staticmethod
+    def parse_header(raw_header_bytes):
+        src_port, dst_port, udp_len, checksum = struct.unpack(UdpHeader.RAW_HEADER_STRUCT, raw_header_bytes)
+        return UdpHeader(src_port, dst_port, udp_len, checksum)
+
+    def __init__(self, src_port, dst_port, udp_len, checksum):
+        self.src_port = src_port
+        self.dst_port = dst_port
+        self.udp_len = udp_len
+        self.checksum = checksum
+        self.pseudo_header = b''
+
+    def fill_payload_dependent_fields(self, payload):
+        self.udp_len = type(self).UDP_HEADER_SIZE + len(payload)
+        self.checksum = 0
+        self.checksum = checksum(self.pseudo_header+self.get_raw_header()+payload)
+
+    def get_raw_header(self):
+        return struct.pack(
+            type(self).RAW_HEADER_STRUCT,
+            self.src_port,
+            self.dst_port,
+            self.udp_len,
+            self.checksum
+        )
+
+    def length(self):
+        return struct.calcsize(type(self).RAW_HEADER_STRUCT)
+
+
+class TcpHeader(BaseProtocol):
+    RAW_HEADER_STRUCT = "!HHLLHHHH"
+    DEFAULT_TCP_HEADER_SIZE = 20
+
+    @staticmethod
+    def parse_header(raw_header_bytes):
+        unpacked_values = struct.unpack(TcpHeader.RAW_HEADER_STRUCT, raw_header_bytes)
+        src_port, dst_port, seq_num, ack_num, offset_and_flags, window_size, checksum, urgent_ptr = unpacked_values
+        return TcpHeader(src_port, dst_port, seq_num, ack_num, offset_and_flags, window_size, checksum, urgent_ptr)
+
+    def __init__(self, src_port, dst_port, seq_num, ack_num, offset_and_flags, window_size, checksum, urgent_ptr):
+        self.src_port = src_port
+        self.dst_port = dst_port
+        self.seq_num = seq_num
+        self.ack_num = ack_num
+        self.offset_and_flags = offset_and_flags
+        self.window_size = window_size
+        self.checksum = checksum
+        self.urgent_ptr = urgent_ptr
+
+        self.pseudo_header = b''
+
+    def fill_payload_dependent_fields(self, payload):
+        self.checksum = 0
+        self.checksum = checksum(self.pseudo_header+self.get_raw_header()+payload)
+
+    def get_raw_header(self):
+        return struct.pack(
+            type(self).RAW_HEADER_STRUCT,
+            self.src_port,
+            self.dst_port,
+            self.seq_num,
+            self.ack_num,
+            self.offset_and_flags,
+            self.window_size,
+            self.checksum,
+            self.urgent_ptr,
+        )
+
+    def length(self):
+        return struct.calcsize(type(self).RAW_HEADER_STRUCT)
+
+
+class UnknownProtocol(BaseProtocol):
+    def __init__(self, payload):
+        self.payload = payload
+
+    def get_raw_header(self):
+        return self.payload
+
+    def length(self):
+        return len(self.payload)
