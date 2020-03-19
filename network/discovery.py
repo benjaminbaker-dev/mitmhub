@@ -7,7 +7,7 @@ def run_detailed_scan(host):
     nm = nmap.PortScanner()
     scan = nm.scan(hosts=host, arguments='-O')['scan']
     if len(scan.keys()) == 0:
-        raise InactiveHostException
+        raise InactiveHostException("Inactive host {}".format(host))
     host_data = scan[host]
     os_names = [os['name'] for os in host_data['osmatch']] if len(host_data['osmatch']) > 0 else ['Unknown OS']
     host_names = [name['name'] for name in host_data['hostnames']] if len(host_data['hostnames']) > 0 else ['Unknown Name']
