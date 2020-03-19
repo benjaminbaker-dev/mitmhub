@@ -354,15 +354,19 @@ class TcpHeader(BaseProtocol):
 
 
 class UnknownProtocol(BaseProtocol):
+    """
+    Represents a header we can't identify
+    Just has the unidentified raw bytes in a single field
+    """
     @staticmethod
     def parse_raw_header(raw_header_bytes):
         return UnknownProtocol(raw_header_bytes), len(raw_header_bytes)
 
-    def __init__(self, payload):
-        self.payload = payload
+    def __init__(self, raw_bytes):
+        self.raw_bytes = raw_bytes
 
     def get_raw_header(self):
-        return self.payload
+        return self.raw_bytes
 
     def length(self):
-        return len(self.payload)
+        return len(self.raw_bytes)

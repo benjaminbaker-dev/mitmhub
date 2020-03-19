@@ -125,10 +125,10 @@ class L2Tunnel:
         )
         recv_l4_header.pseudo_header = pseudo_header
 
-        l4_payload = l3_payload[recv_l4_header.length():]
+        l4_payload = l3_payload[l4_header_len:]
         recv_l4_header, l4_payload = self._disruption_rules[4](recv_l4_header, l4_payload)
 
-        #recalculate ip checksum
+        # recalculate ip checksum
         recv_ipheader.fill_payload_dependent_fields(recv_l4_header.get_raw_header()+l4_payload)
 
         raw_packet_data = b''
@@ -146,12 +146,12 @@ class L2Tunnel:
         """
         while self._should_forward:
             data, addr = self._raw_sock.recvfrom(MAX_BUF_SIZE)
+
             # TODO: figure out what x y and z are
             recv_iface, x, y, z, src_mac_addr = addr
-            #TODO: Replace this with a bpf on the socket itself
-            recv_ipheader, recv_ipheader_len = IpHeader.parse_raw_header(
-                data[EtherHeader.TOTAL_HEADER_LEN:EtherHeader.TOTAL_HEADER_LEN + IpHeader.DEFAULT_HEADER_SIZE]
-            )
+
+            # TODO: Replace this with a bpf on the socket itself
+            recv_ipheader, recv_ipheader_len = IpHeader.parse_raw_header(data[EtherHeader.TOTAL_HEADER_LEN:])
             if recv_ipheader.dst_ip != self.target_ip and recv_ipheader.src_ip != self.target_ip:
                 continue
 
