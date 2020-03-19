@@ -14,7 +14,9 @@ class Network:
         self.gateway_mac = network_utils.get_mac(self.gateway_ip)
         self.slash_notation_ip_range = network_utils.generate_slash_notation_net_mask(self.interface)
 
+        print("starting network map, this could take a while")
         self.nodes = self._generate_nodes()
+        print("successfully mapped network")
 
     @property
     def gateway_ip_bytes(self):
