@@ -15,7 +15,7 @@ def ping(host, timeout=2):
     """
     Returns True if host (str) responds to a ping request.
     """
-    return call(['ping', '-c', '1', '-W', str(timeout), host], stdout=DEVNULL) == 0
+    return call(['ping', '-c', '1', '-W', str(timeout), host], stdout=DEVNULL, stderr=DEVNULL) == 0
 
 
 def _format_ip4_with_net_mask(ip, net_mask):
@@ -90,5 +90,3 @@ def generate_active_ip4_list(interface="en0"):
 
     return active_list
 
-
-print(generate_active_ip4_list())
