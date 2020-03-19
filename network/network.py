@@ -14,7 +14,7 @@ class Network:
         self.gateway_mac = network_utils.get_mac(self.gateway_ip)
         self.slash_notation_ip_range = network_utils.generate_slash_notation_net_mask(self.interface)
 
-        print("starting network map, this could take a while")
+        print("starting network map on subnet {}, this could take a while...".format(self.slash_notation_ip_range))
         self.nodes = self._generate_nodes()
         print("successfully mapped network")
 
@@ -27,24 +27,20 @@ class Network:
         return binascii.unhexlify(self.gateway_mac.replace(':', ''))
 
     def _generate_nodes(self):
-        nmap_data = discovery.run_nmap_scan(self.slash_notation_ip_range)
-        scanned_ip_data = nmap_data["scan"]
+        up_addresses_on_subnet = discovery.run_subnet_discovery(self.slash_notation_ip_range)
 
         node_list = []
-        for ip in scanned_ip_data:
-            scan_data = scanned_ip_data[ip]
+        for ip, scan_data in up_addresses_on_subnet.items():
+            if scan_data['status']['reason'] == 'localhost-response':
+                continue
             mac = scan_data["addresses"]["mac"]
-            hostname = scan_data["hostnames"][0]["name"] if scan_data["hostnames"] else None
-            os = scan_data["osmatch"][0]["name"] if scan_data["osmatch"] else None
 
             node_list.append(NetworkNode(
                 interface=self.interface,
                 ip=ip,
                 mac=mac,
                 gateway_ip=self.gateway_ip,
-                gateway_mac=self.gateway_mac,
-                hostname=hostname,
-                os=os
+                gateway_mac=self.gateway_mac
             ))
         return node_list
 
