@@ -113,7 +113,7 @@ class L2Tunnel:
         if recv_ipheader.proto in type(self).PARSE_L4_FUNCTIONS:
             recv_l4_header, l4_header_len = type(self).PARSE_L4_FUNCTIONS[recv_ipheader.proto](l3_payload)
         else:
-            recv_l4_header, recv_l4_header = UnknownProtocol.parse_raw_header(l3_payload)
+            recv_l4_header, l4_header_len = UnknownProtocol.parse_raw_header(l3_payload)
 
         # add the pseudo header bytes to the l4 header object, this doesnt happen in the parse because the parse doesnt
         # see the necessary l3 info
