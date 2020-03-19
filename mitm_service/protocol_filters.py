@@ -13,10 +13,10 @@ DNS_TYPE_IPV6 = 28
 
 def generate_ip_redirect_rule(target_ip, redirect_ip):
     """
-    Factory function to generate a disruption rule that swaps ips
+    Factory function to generate a filter that swaps ips
     :param target_ip: the dest ip to swap from
     :param redirect_ip: the source ip to swap to
-    :return: a disruption rule function (takes a header and payload, returns a header and payload)
+    :return: a filter function (takes a header and payload, returns a header and payload)
     """
     target_ip = inet_aton(target_ip)
     redirect_ip = inet_aton(redirect_ip)
@@ -53,19 +53,19 @@ def generate_ip_redirect_rule(target_ip, redirect_ip):
     return disrupt_ip_traffic
 
 
-def generate_dns_reassign_rule(domain_name, new_ip):
+def generate_dns_reassign_rule(domain_name, new_ip, dns_port=DNS_PORT):
     """
-    Factory function to generate dns reassign rules. Any DNS responses that give IPs for the provided
+    Factory function to generate dns reassign filters. Any DNS responses that give IPs for the provided
     domain name have their IP answers replaced with the provided IP. NOTE: This only alters IPV4 addresses
     :param domain_name: The domain name to change
     :param new_ip: The IP to change answers to
-    :return: The disruption rule filter function
+    :return: The filter function for dns reassigns
     """
     domain_name = dnslib.DNSLabel(domain_name)
     new_ip = dnslib.dns.A(new_ip)
 
     def disrupt_dns_traffic(udp_header, udp_payload):
-        if not isinstance(udp_header, UdpHeader) or udp_header.src_port != DNS_PORT:
+        if not isinstance(udp_header, UdpHeader) or udp_header.src_port != dns_port:
             return udp_header, udp_payload
 
         record = dnslib.DNSRecord.parse(udp_payload)
@@ -90,14 +90,14 @@ def generate_dns_reassign_rule(domain_name, new_ip):
     return disrupt_dns_traffic
 
 
-def generate_dns_log_rule(log_file_object):
+def generate_dns_log_rule(log_file_object, dns_port=DNS_PORT):
     """
-    Factory function to generate disruption rule that logs all dns queries
+    Factory function to generate filters that log all dns queries
     :param log_file_object: The file object (writeable) to log the queries to
-    :return: the disruption rule function
+    :return: the filter function
     """
     def log_dns_queries(udp_header, udp_payload):
-        if not isinstance(udp_header, UdpHeader) or udp_header.dst_port != DNS_PORT:
+        if not isinstance(udp_header, UdpHeader) or udp_header.dst_port != dns_port:
             return udp_header, udp_payload
 
         record = dnslib.DNSRecord.parse(udp_payload)

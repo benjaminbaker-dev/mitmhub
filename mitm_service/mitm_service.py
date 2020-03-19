@@ -73,6 +73,6 @@ class MITMService:
         self.arp_poisoner.stop_mitm()
         self.l2_tunnel.stop_forward_thread()
 
-    def add_disruption_rule(self, *args, **kwargs):
-        return self.l2_tunnel.add_disruption_rule(*args, **kwargs)
+    def add_filter_to_layer(self, *args, **kwargs):
+        return self.l2_tunnel.add_filter_to_layer(*args, **kwargs)
 

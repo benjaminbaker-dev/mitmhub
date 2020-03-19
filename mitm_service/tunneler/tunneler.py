@@ -36,7 +36,7 @@ class L2Tunnel:
     """
     A class for handling tunnel forwarding on layer 2
     """
-    DISRUPTION_CAPABLE_LAYERS = [2, 3, 4]
+    FILTER_CAPABLE_LAYERS = [2, 3, 4]
 
     PARSE_L4_FUNCTIONS = {
         IPPROTO_UDP: UdpHeader.parse_raw_header,
@@ -50,25 +50,42 @@ class L2Tunnel:
         self._raw_sock = _create_raw_ip_socket(interface)
         self._should_forward = False
         self._forward_thread = None
-        self._disruption_rules = {}
+        self._filters_by_layer = {}
         self.target_ip = inet_aton(target_ip)
-        for layer_num in type(self).DISRUPTION_CAPABLE_LAYERS:
-            self._disruption_rules[layer_num] = lambda header, payload: (header, payload)
+        for layer_num in type(self).FILTER_CAPABLE_LAYERS:
+            self._filters_by_layer[layer_num] = []
 
-    def add_disruption_rule(self, layer, rule):
+    def add_filter_to_layer(self, layer, resolution_index, protocol_filter):
         """
-        Add a disruption rule at the given layer
+        Add a filter at the given protocol layer for a given priority
         :param layer: The layer number to insert this rule at (must be one of the options in L2Tunnel.PARSE_CAPABLE_LAYERS)
-        :param rule: A lambda that excepts this layer's header and payload, modifies them, and returns them modified
+        :param resolution_index: The index at which to insert the rule into the processing queue. Rules are resolved in
+                                 the order of their resolution index, so a rule with a low resolution index is resolved
+                                 before a rule with a high resolution index. If the resolution index is greater than the
+                                 number of filters in the processing queue, then it is inserted at the end of the queue
+        :param protocol_filter: A callable that excepts this layer's header and payload, modifies them, and returns them modified
         :return: None
         """
-        if layer not in type(self).DISRUPTION_CAPABLE_LAYERS:
-            raise BadLayerException('This tunnel does not support disruption on layer {} (only on layers {})'.format(
+        if layer not in type(self).FILTER_CAPABLE_LAYERS:
+            raise BadLayerException('This tunnel does not support filtering on layer {} (only on layers {})'.format(
                 layer,
-                type(self).DISRUPTION_CAPABLE_LAYERS
+                type(self).FILTER_CAPABLE_LAYERS
             ))
 
-        self._disruption_rules[layer] = rule
+        self._filters_by_layer[layer].insert(resolution_index, protocol_filter)
+
+    def apply_filters(self, layer, header, payload):
+        """
+        Apply the filters for a given layer sequentially on the provided header/payload.
+        NOTE: The provided header and payload must be valid headers/payloads for protocols of layer type :param layer
+        :param layer: The layer number who's filters to use
+        :param header: the header to process
+        :param payload: the payload to process
+        :return: the header and payload after being modified by the layer filters
+        """
+        for protocol_filter in self._filters_by_layer[layer]:
+            header, payload = protocol_filter(header, payload)
+        return header, payload
 
     def repackage_frame(self, raw_frame):
         """
@@ -91,22 +108,22 @@ class L2Tunnel:
 
         return parsed_ether_header.get_raw_header() + raw_frame[EtherHeader.TOTAL_HEADER_LEN:]
 
-    def disrupt_layers(self, raw_data):
+    def filter_layers(self, raw_data):
         """
-        Take in raw data, parse it protocol layers, and apply this tunnel's service disruption rules to each layer
+        Take in raw data, parse it protocol layers, and apply this tunnel's protocol filters to each layer
         :param raw_data: The raw data of the frame (all data, including layer 2)
         :return: the raw bytes data of the disrupted frame
         """
         # receive and disrupt l2
         recv_etherheader, recv_etherheader_len = EtherHeader.parse_raw_header(raw_data[:EtherHeader.TOTAL_HEADER_LEN])
         l2_payload = raw_data[recv_etherheader_len:]
-        recv_etherheader, l2_payload = self._disruption_rules[2](recv_etherheader, l2_payload)
+        recv_etherheader, l2_payload = self.apply_filters(layer=2, header=recv_etherheader, payload=l2_payload)
 
         # receive and disrupt l3
         raw_ip_header = l2_payload[:IpHeader.DEFAULT_HEADER_SIZE]
         recv_ipheader, ip_header_len = IpHeader.parse_raw_header(raw_ip_header)
         l3_payload = l2_payload[ip_header_len:]
-        recv_ipheader, l3_payload = self._disruption_rules[3](recv_ipheader, l3_payload)
+        recv_ipheader, l3_payload = self.apply_filters(layer=3, header=recv_ipheader, payload=l3_payload)
 
         # receive and disrupt l4
         if recv_ipheader.proto in type(self).PARSE_L4_FUNCTIONS:
@@ -125,7 +142,7 @@ class L2Tunnel:
         recv_l4_header.pseudo_header = pseudo_header
 
         l4_payload = l3_payload[l4_header_len:]
-        recv_l4_header, l4_payload = self._disruption_rules[4](recv_l4_header, l4_payload)
+        recv_l4_header, l4_payload = self.apply_filters(layer=4, header=recv_l4_header, payload=l4_payload)
 
         # recalculate ip checksum
         recv_ipheader.fill_payload_dependent_fields(recv_l4_header.get_raw_header()+l4_payload)
@@ -155,7 +172,7 @@ class L2Tunnel:
                 continue
 
             try:
-                disrupted_packet = self.disrupt_layers(data)
+                disrupted_packet = self.filter_layers(data)
             except DropPacketException:
                 # some filter in disrupt_layers raised a drop packet exception, so drop this packet
                 continue
@@ -179,7 +196,7 @@ class L2Tunnel:
     def stop_forward_thread(self):
         """
         Signal this tunnel's forward thread to stop and wait for it to join
-        :return:
+        :return: None
         """
         self._should_forward = False
         self._forward_thread.join()
