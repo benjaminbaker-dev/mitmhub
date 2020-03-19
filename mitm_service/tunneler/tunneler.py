@@ -1,6 +1,6 @@
 from socket import *
-from tunneler.network_headers import *
-from collections import defaultdict
+import threading
+from mitm_service.tunneler.network_headers import *
 import threading
 
 L3_PROTO_IP = 0x0800
