@@ -38,9 +38,9 @@ def generate_ip_redirect_rule(target_ip, redirect_ip):
 
         #adjust checksums, if they exist
         if ip_header.proto == IPPROTO_TCP:
-            l4_header, l4_header_len = TcpHeader.parse_raw_header(ip_payload[:TcpHeader.DEFAULT_TCP_HEADER_SIZE])
+            l4_header, l4_header_len = TcpHeader.parse_raw_header(ip_payload)
         elif ip_header.proto == IPPROTO_UDP:
-            l4_header, l4_header_len = UdpHeader.parse_raw_header(ip_payload[:UdpHeader.UDP_HEADER_SIZE])
+            l4_header, l4_header_len = UdpHeader.parse_raw_header(ip_payload)
         else:
             return ip_header, ip_payload
         l4_payload = ip_payload[l4_header_len:]
