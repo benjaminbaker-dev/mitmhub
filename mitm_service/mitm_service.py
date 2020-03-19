@@ -6,6 +6,7 @@ import fcntl
 from mitm_service.arp_poison.arp_poison import ARPPoisonService
 from mitm_service.tunneler.tunneler import L2Tunnel
 
+# linux ioctl constant
 SIOCGIFHWADDR = 0x8927
 
 def get_interface_mac(interface_name):
