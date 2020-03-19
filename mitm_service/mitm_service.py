@@ -25,14 +25,8 @@ class MITMService:
         self.gateway_ip = gateway_ip
         self.my_mac = get_interface_mac(self.interface)
 
-        if target_mac is None:
-            self.target_mac = ARPPoisonService.get_mac(self.target_ip, 5)
-        else:
-            self.target_mac = target_mac
-        if gateway_mac is None:
-            self.gateway_mac = ARPPoisonService.get_mac(self.gateway_ip, 5)
-        else:
-            self.gateway_mac = gateway_mac
+        self.target_mac = target_mac or ARPPoisonService.get_mac(self.target_ip, 5)
+        self.gateway_mac = gateway_mac or ARPPoisonService.get_mac(self.gateway_ip, 5)
 
         self.arp_poisoner = ARPPoisonService(
             target_ip=self.target_ip,

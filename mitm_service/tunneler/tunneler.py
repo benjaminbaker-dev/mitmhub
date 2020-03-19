@@ -1,7 +1,6 @@
 from socket import *
 import threading
 from mitm_service.tunneler.network_headers import *
-import threading
 
 L3_PROTO_IP = 0x0800
 MAX_BUF_SIZE = 0xffffffff
