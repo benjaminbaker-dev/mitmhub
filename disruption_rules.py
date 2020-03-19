@@ -10,7 +10,7 @@ DNS_RESPONSE = 1
 DNS_TYPE_IPV4 = 1
 DNS_TYPE_IPV6 = 28
 
-def redirect_ips(target_ip, redirect_ip):
+def generate_ip_redirect_rule(target_ip, redirect_ip):
     """
     Factory function to generate a disruption rule that swaps ips
     :param target_ip: the dest ip to swap from
@@ -36,16 +36,14 @@ def redirect_ips(target_ip, redirect_ip):
             print('Spoofing packet origin from {} to {}'.format(ip_header.src_ip_str, inet_ntoa(target_ip)))
             ip_header.src_ip = target_ip
 
-
-
         #adjust checksums, if they exist
         if ip_header.proto == IPPROTO_TCP:
-            l4_header = TcpHeader.parse_header(ip_payload[:TcpHeader.DEFAULT_TCP_HEADER_SIZE])
+            l4_header, l4_header_len = TcpHeader.parse_raw_header(ip_payload[:TcpHeader.DEFAULT_TCP_HEADER_SIZE])
         elif ip_header.proto == IPPROTO_UDP:
-            l4_header = UdpHeader.parse_header(ip_payload[:UdpHeader.UDP_HEADER_SIZE])
+            l4_header, l4_header_len = UdpHeader.parse_raw_header(ip_payload[:UdpHeader.UDP_HEADER_SIZE])
         else:
             return ip_header, ip_payload
-        l4_payload = ip_payload[l4_header.length():]
+        l4_payload = ip_payload[l4_header_len:]
         l4_header.checksum = 0
         ip_payload = l4_header.get_raw_header() + l4_payload
 
@@ -54,12 +52,13 @@ def redirect_ips(target_ip, redirect_ip):
     return disrupt_ip_traffic
 
 
-def change_dns_responses(domain_name, new_ip):
+def generate_dns_reassign_rule(domain_name, new_ip):
     """
-
-    :param domain_name:
-    :param new_ip:
-    :return:
+    Factory function to generate dns reassign rules. Any DNS responses that give IPs for the provided
+    domain name have their IP answers replaced with the provided IP. NOTE: This only alters IPV4 addresses
+    :param domain_name: The domain name to change
+    :param new_ip: The IP to change answers to
+    :return: The disruption rule filter function
     """
     domain_name = dnslib.DNSLabel(domain_name)
     new_ip = dnslib.dns.A(new_ip)
@@ -69,8 +68,11 @@ def change_dns_responses(domain_name, new_ip):
             return udp_header, udp_payload
 
         record = dnslib.DNSRecord.parse(udp_payload)
+        #QR == bit that says if we a re a query or response
         if record.header.qr != DNS_RESPONSE:
             return udp_header, udp_payload
+
+        #rr == resource records
         answers = record.rr
 
         for answer in answers:

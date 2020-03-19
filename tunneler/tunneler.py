@@ -1,5 +1,6 @@
 from socket import *
 from tunneler.network_headers import *
+from collections import defaultdict
 import threading
 
 L3_PROTO_IP = 0x0800
@@ -19,6 +20,7 @@ class DropPacketException(TunnelException):
     """
     pass
 
+
 def _create_raw_ip_socket(interface):
     """
     Create a raw socket to listen for ip packets on a specific interface
@@ -31,12 +33,17 @@ def _create_raw_ip_socket(interface):
 
     return raw_sock
 
-
 class L2Tunnel:
     """
     A class for handling tunnel forwarding on layer 2
     """
     DISRUPTION_CAPABLE_LAYERS = [2, 3, 4]
+
+    PARSE_L4_FUNCTIONS = {
+        IPPROTO_UDP: UdpHeader.parse_raw_header,
+        IPPROTO_TCP: TcpHeader.parse_raw_header,
+    }
+
     def __init__(self, target_mac, gateway_mac, my_mac, target_ip, interface):
         self.target_mac = target_mac
         self.gateway_mac = gateway_mac
@@ -71,7 +78,7 @@ class L2Tunnel:
         :return: a bytes object of the raw bytes of the new frame (changed mac addresses)
         """
         raw_ether_header = raw_frame[:EtherHeader.TOTAL_HEADER_LEN]
-        parsed_ether_header = EtherHeader.parse_header(raw_ether_header)
+        parsed_ether_header, ether_header_len = EtherHeader.parse_raw_header(raw_ether_header)
 
         # if its coming from the gateway, its meant for the target
         if parsed_ether_header.src_addr == self.gateway_mac:
@@ -91,34 +98,32 @@ class L2Tunnel:
         :param raw_data: The raw data of the frame (all data, including layer 2)
         :return: the raw bytes data of the disrupted frame
         """
-        recv_etherheader = EtherHeader.parse_header(raw_data[:EtherHeader.TOTAL_HEADER_LEN])
-
-        l2_payload = raw_data[recv_etherheader.length():]
+        # receive and disrupt l2
+        recv_etherheader, recv_etherheader_len = EtherHeader.parse_raw_header(raw_data[:EtherHeader.TOTAL_HEADER_LEN])
+        l2_payload = raw_data[recv_etherheader_len:]
         recv_etherheader, l2_payload = self._disruption_rules[2](recv_etherheader, l2_payload)
 
+        # receive and disrupt l3
         raw_ip_header = l2_payload[:IpHeader.DEFAULT_HEADER_SIZE]
-        recv_ipheader = IpHeader.parse_header(raw_ip_header)
-        l3_payload = l2_payload[recv_ipheader.length():]
+        recv_ipheader, ip_header_len = IpHeader.parse_raw_header(raw_ip_header)
+        l3_payload = l2_payload[ip_header_len:]
         recv_ipheader, l3_payload = self._disruption_rules[3](recv_ipheader, l3_payload)
 
-        if recv_ipheader.proto == IPPROTO_UDP:
-            recv_l4_header = UdpHeader.parse_header(l3_payload[:UdpHeader.UDP_HEADER_SIZE])
-            recv_l4_header.pseudo_header = generate_pseudo_header(
-                recv_ipheader.src_ip,
-                recv_ipheader.dst_ip,
-                recv_ipheader.proto,
-                recv_ipheader.tot_len
-            )
-        elif recv_ipheader.proto == IPPROTO_TCP:
-            recv_l4_header = TcpHeader.parse_header(l3_payload[:TcpHeader.DEFAULT_TCP_HEADER_SIZE])
-            recv_l4_header.pseudo_header = generate_pseudo_header(
-                recv_ipheader.src_ip,
-                recv_ipheader.dst_ip,
-                recv_ipheader.proto,
-                recv_ipheader.tot_len
-            )
+        # receive and disrupt l4
+        if recv_ipheader.proto in type(self).PARSE_L4_FUNCTIONS:
+            recv_l4_header, l4_header_len = type(self).PARSE_L4_FUNCTIONS[recv_ipheader.proto](l3_payload)
         else:
-            recv_l4_header = UnknownProtocol(l3_payload)
+            recv_l4_header, recv_l4_header = UnknownProtocol.parse_raw_header(l3_payload)
+
+        # add the pseudo header bytes to the l4 header object, this doesnt happen in the parse because the parse doesnt
+        # see the necessary l3 info
+        pseudo_header = generate_pseudo_header(
+            recv_ipheader.src_ip,
+            recv_ipheader.dst_ip,
+            recv_ipheader.proto,
+            recv_ipheader.tot_len
+        )
+        recv_l4_header.pseudo_header = pseudo_header
 
         l4_payload = l3_payload[recv_l4_header.length():]
         recv_l4_header, l4_payload = self._disruption_rules[4](recv_l4_header, l4_payload)
@@ -144,7 +149,9 @@ class L2Tunnel:
             # TODO: figure out what x y and z are
             recv_iface, x, y, z, src_mac_addr = addr
             #TODO: Replace this with a bpf on the socket itself
-            recv_ipheader = IpHeader.parse_header(data[EtherHeader.TOTAL_HEADER_LEN:EtherHeader.TOTAL_HEADER_LEN + IpHeader.DEFAULT_HEADER_SIZE])
+            recv_ipheader, recv_ipheader_len = IpHeader.parse_raw_header(
+                data[EtherHeader.TOTAL_HEADER_LEN:EtherHeader.TOTAL_HEADER_LEN + IpHeader.DEFAULT_HEADER_SIZE]
+            )
             if recv_ipheader.dst_ip != self.target_ip and recv_ipheader.src_ip != self.target_ip:
                 continue
 

