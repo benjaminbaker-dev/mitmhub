@@ -32,9 +32,9 @@ def get_mac(target_ip, mac_resolve_max_tries=5):
     return target_mac
 
 
-def get_default_gateway_ip():
+def get_default_gateway_ip_and_interface():
     data = netifaces.gateways()
-    return list(data['default'].values())[0][0]
+    return data['default'][netifaces.AF_INET]
 
 
 def _format_ip4_with_net_mask(ip, net_mask):
@@ -43,16 +43,10 @@ def _format_ip4_with_net_mask(ip, net_mask):
     :param ip: IP4 address
     :param net_mask: IP4 net mask
     """
-    ip_parts = ip.split(IP_PART_SEPARATOR)
-    mask_parts = net_mask.split(IP_PART_SEPARATOR)
-
-    for index in range(len(mask_parts)):
-        if mask_parts[index] == "255":
-            continue
-
-        ip_parts[index] = mask_parts[index]
-
-    return ".".join(ip_parts)
+    ip_bytes = socket.inet_aton(ip)
+    net_mask_bytes = socket.inet_aton(net_mask)
+    masked_ip_bytes = bytes([ip_octet & mask_octet for ip_octet, mask_octet in zip(ip_bytes, net_mask_bytes)])
+    return socket.inet_ntoa(masked_ip_bytes)
 
 
 def _get_active_bits(net_mask):
@@ -80,7 +74,7 @@ def _get_interface_ip4_data(interface):
     return ip4_address_data["addr"], ip4_address_data["netmask"], ip4_address_data["broadcast"]
 
 
-def generate_slash_notation_net_mask(interface="en0"):
+def generate_slash_notation_net_mask(interface):
     """
     returns list of potential ip addresses on network, excluding this machine and broadcast
     :param interface: network interface to get network data from
@@ -91,3 +85,6 @@ def generate_slash_notation_net_mask(interface="en0"):
 
     slash_notation_mask = "{}/{}".format(formatted_ip, active_bits)
     return slash_notation_mask
+
+
+print(get_default_gateway_ip_and_interface())

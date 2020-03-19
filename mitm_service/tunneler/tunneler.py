@@ -1,7 +1,6 @@
 from socket import *
-from tunneler.network_headers import *
-from collections import defaultdict
 import threading
+from mitm_service.tunneler.network_headers import *
 
 L3_PROTO_IP = 0x0800
 MAX_BUF_SIZE = 0xffffffff
@@ -155,7 +154,11 @@ class L2Tunnel:
             if recv_ipheader.dst_ip != self.target_ip and recv_ipheader.src_ip != self.target_ip:
                 continue
 
-            disrupted_packet = self.disrupt_layers(data)
+            try:
+                disrupted_packet = self.disrupt_layers(data)
+            except DropPacketException:
+                # some filter in disrupt_layers raised a drop packet exception, so drop this packet
+                continue
 
             repackaged_frame = self.repackage_frame(disrupted_packet)
             try:
