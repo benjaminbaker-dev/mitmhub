@@ -11,6 +11,7 @@ DNS_RESPONSE = 1
 DNS_TYPE_IPV4 = 1
 DNS_TYPE_IPV6 = 28
 
+
 def generate_ip_redirect_rule(target_ip, redirect_ip):
     """
     Factory function to generate a disruption rule that swaps ips
@@ -23,7 +24,7 @@ def generate_ip_redirect_rule(target_ip, redirect_ip):
 
     def disrupt_ip_traffic(ip_header, ip_payload):
         if not isinstance(ip_header, IpHeader):
-            #not an ip packet so ignore
+            # not an ip packet so ignore
             return ip_header, ip_payload
 
         if ip_header.dst_ip != target_ip and ip_header.src_ip != redirect_ip:
@@ -37,7 +38,7 @@ def generate_ip_redirect_rule(target_ip, redirect_ip):
             print('Spoofing packet origin from {} to {}'.format(ip_header.src_ip_str, inet_ntoa(target_ip)))
             ip_header.src_ip = target_ip
 
-        #adjust checksums, if they exist
+        # adjust checksums, if they exist
         if ip_header.proto == IPPROTO_TCP:
             l4_header, l4_header_len = TcpHeader.parse_raw_header(ip_payload)
         elif ip_header.proto == IPPROTO_UDP:
@@ -69,11 +70,11 @@ def generate_dns_reassign_rule(domain_name, new_ip):
             return udp_header, udp_payload
 
         record = dnslib.DNSRecord.parse(udp_payload)
-        #QR == bit that says if we a re a query or response
+        # QR == bit that says if we a re a query or response
         if record.header.qr != DNS_RESPONSE:
             return udp_header, udp_payload
 
-        #rr == resource records
+        # rr == resource records
         answers = record.rr
 
         for answer in answers:
@@ -96,6 +97,7 @@ def generate_dns_log_rule(log_file_object):
     :param log_file_object: The file object (writeable) to log the queries to
     :return: the disruption rule function
     """
+
     def log_dns_queries(udp_header, udp_payload):
         if not isinstance(udp_header, UdpHeader) or udp_header.dst_port != DNS_PORT:
             return udp_header, udp_payload
@@ -110,5 +112,3 @@ def generate_dns_log_rule(log_file_object):
         return udp_header, udp_payload
 
     return log_dns_queries
-
-

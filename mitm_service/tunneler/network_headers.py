@@ -39,15 +39,16 @@ def checksum(msg):
     :return: the checksum as a 16 bit number
     """
     s = 0
-    #add padding
+    # add padding
     if len(msg) % 2 == 1:
         msg += b'\x00'
     for i in range(0, len(msg), 2):
-        w = msg[i] + (msg[i+1] << 8)
+        w = msg[i] + (msg[i + 1] << 8)
         s = carry_around_add(s, w)
     csum = ~s & 0xffff
     # the entire calculation was done in big endian, but we want it in little for our computer
     return swap_endianess_16(csum)
+
 
 def generate_pseudo_header(src_ip, dst_ip, l3_proto, l3_tot_len):
     return struct.pack(
@@ -58,6 +59,7 @@ def generate_pseudo_header(src_ip, dst_ip, l3_proto, l3_tot_len):
         l3_proto,
         l3_tot_len
     )
+
 
 class BaseProtocol:
     @staticmethod
@@ -162,7 +164,8 @@ class IpHeader(BaseProtocol):
     NO_FLAGS = 0
     NO_FRAG_OFFSET = 0
     RAW_HEADER_STRUCT = '!BBHHHBBHII'
-    RAW_HEADER_FIELDS = ['version_ihl', 'tos', 'total_len', 'id', 'frag_offset', 'ttl', 'proto', 'checksum', 'src_ip', 'dst_ip']
+    RAW_HEADER_FIELDS = ['version_ihl', 'tos', 'total_len', 'id', 'frag_offset', 'ttl', 'proto', 'checksum', 'src_ip',
+                         'dst_ip']
 
     @staticmethod
     def _get_version_ihl_from_byte(version_ihl_byte):
@@ -293,7 +296,7 @@ class UdpHeader(BaseProtocol):
     def fill_payload_dependent_fields(self, payload):
         self.udp_len = type(self).UDP_HEADER_SIZE + len(payload)
         self.checksum = 0
-        self.checksum = checksum(self.pseudo_header+self.get_raw_header()+payload)
+        self.checksum = checksum(self.pseudo_header + self.get_raw_header() + payload)
 
     def get_raw_header(self):
         return struct.pack(
@@ -317,7 +320,8 @@ class TcpHeader(BaseProtocol):
         raw_header_bytes = raw_header_bytes[:TcpHeader.DEFAULT_TCP_HEADER_SIZE]
         unpacked_values = struct.unpack(TcpHeader.RAW_HEADER_STRUCT, raw_header_bytes)
         src_port, dst_port, seq_num, ack_num, offset_and_flags, window_size, checksum, urgent_ptr = unpacked_values
-        tcp_header = TcpHeader(src_port, dst_port, seq_num, ack_num, offset_and_flags, window_size, checksum, urgent_ptr)
+        tcp_header = TcpHeader(src_port, dst_port, seq_num, ack_num, offset_and_flags, window_size, checksum,
+                               urgent_ptr)
         return tcp_header, TcpHeader.DEFAULT_TCP_HEADER_SIZE
 
     def __init__(self, src_port, dst_port, seq_num, ack_num, offset_and_flags, window_size, checksum, urgent_ptr):
@@ -334,7 +338,7 @@ class TcpHeader(BaseProtocol):
 
     def fill_payload_dependent_fields(self, payload):
         self.checksum = 0
-        self.checksum = checksum(self.pseudo_header+self.get_raw_header()+payload)
+        self.checksum = checksum(self.pseudo_header + self.get_raw_header() + payload)
 
     def get_raw_header(self):
         return struct.pack(
@@ -358,6 +362,7 @@ class UnknownProtocol(BaseProtocol):
     Represents a header we can't identify
     Just has the unidentified raw bytes in a single field
     """
+
     @staticmethod
     def parse_raw_header(raw_header_bytes):
         return UnknownProtocol(raw_header_bytes), len(raw_header_bytes)

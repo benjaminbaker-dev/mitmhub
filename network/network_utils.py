@@ -10,25 +10,34 @@ IP_PART_SEPARATOR = "."
 BROADCAST_MAC = "ff:ff:ff:ff:ff:ff"
 
 
-def get_mac(target_ip, mac_resolve_max_tries=5):
+def get_interface_mac(interface_name):
+    """
+    Gets the mac string of a given interface
+    :param interface_name: the name of the interface who's mac to get
+    :return: the mac address of the interface as a string
+    """
+    return netifaces.ifaddresses(interface_name)[netifaces.AF_LINK][0]["addr"]
+
+
+def get_mac(target_ip, max_resolve_max_tries=5):
     """
     queries network for MAC address corresponding to :param target_ip
     :param target_ip: IP address
-    :param mac_resolve_max_tries: amount of times to try resolve mac address
+    :param max_resolve_max_tries: how many times to try resolving mac
     :return: mac address that matches :param target_ip
     """
     arp_response = None
     try_count = 0
 
     while not arp_response:
-        if try_count > mac_resolve_max_tries:
+        if try_count > max_resolve_max_tries:
             raise ValueError("cannot resolve {}. are you sure it exists ?".format(target_ip))
 
         arp_request = Ether(dst=BROADCAST_MAC) / ARP(op=ARP_REQUEST, pdst=target_ip)
-        arp_response = srp(arp_request, timeout=ARP_REQUEST_TIMEOUT, verbose=False)[0]
+        arp_response = srp1(arp_request, timeout=ARP_REQUEST_TIMEOUT, verbose=False)
         try_count += 1
 
-    target_mac = arp_response[0][0][1].hwsrc
+    target_mac = arp_response[ARP].hwsrc
     return target_mac
 
 
@@ -85,6 +94,3 @@ def generate_slash_notation_net_mask(interface):
 
     slash_notation_mask = "{}/{}".format(formatted_ip, active_bits)
     return slash_notation_mask
-
-
-print(get_default_gateway_ip_and_interface())

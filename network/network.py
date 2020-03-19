@@ -1,3 +1,6 @@
+import socket
+import binascii
+
 from network import network_utils
 from . import discovery
 from .network_node import NetworkNode
@@ -7,12 +10,19 @@ class Network:
     def __init__(self, name):
         self.name = name
 
-        gateway_ip, interface = network_utils.get_default_gateway_ip_and_interface()
-        self.gateway_ip = gateway_ip
+        self.gateway_ip, self.interface = network_utils.get_default_gateway_ip_and_interface()
         self.gateway_mac = network_utils.get_mac(self.gateway_ip)
-        self.slash_notation_ip_range = network_utils.generate_slash_notation_net_mask(interface)
+        self.slash_notation_ip_range = network_utils.generate_slash_notation_net_mask(self.interface)
 
         self.nodes = self._generate_nodes()
+
+    @property
+    def gateway_ip_bytes(self):
+        return socket.inet_aton(self.gateway_ip)
+
+    @property
+    def gateway_mac_bytes(self):
+        return binascii.unhexlify(self.gateway_mac.replace(':', ''))
 
     def _generate_nodes(self):
         nmap_data = discovery.run_nmap_scan(self.slash_notation_ip_range)
@@ -26,6 +36,7 @@ class Network:
             os = scan_data["osmatch"][0]["name"] if scan_data["osmatch"] else None
 
             node_list.append(NetworkNode(
+                interface=self.interface,
                 ip=ip,
                 mac=mac,
                 gateway_ip=self.gateway_ip,
