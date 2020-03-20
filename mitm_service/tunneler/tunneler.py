@@ -63,7 +63,7 @@ class L2Tunnel:
                                  the order of their resolution index, so a rule with a low resolution index is resolved
                                  before a rule with a high resolution index. If the resolution index is greater than the
                                  number of filters in the processing queue, then it is inserted at the end of the queue
-        :param protocol_filter: A callable that excepts this layer's header and payload, modifies them, and returns them modified
+        :param protocol_filter: A callable that expects this layer's header and payload, modifies them, and returns them modified
         :return: None
         """
         if layer not in type(self).FILTER_CAPABLE_LAYERS:
@@ -174,7 +174,7 @@ class L2Tunnel:
             try:
                 disrupted_packet = self.filter_layers(data)
             except DropPacketException:
-                # some filter in disrupt_layers raised a drop packet exception, so drop this packet
+                # some filter in filter_layers raised a drop packet exception, so drop this packet
                 continue
 
             repackaged_frame = self.repackage_frame(disrupted_packet)
