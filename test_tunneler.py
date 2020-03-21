@@ -10,7 +10,7 @@ def main():
 
     mitm = MITMService('eno1', target, gateway)
 
-    #disrupt_dns_rule = disruption_rules.generate_dns_reassign_rule('www.google.com', '104.16.41.71')
+    # disrupt_dns_rule = disruption_rules.generate_dns_reassign_rule('www.google.com', '104.16.41.71')
     log_file = open('dns_log.txt', 'w')
     log_dns_rule = protocol_filters.generate_dns_log_rule(log_file)
     mitm.add_filter_to_layer(
@@ -29,6 +29,7 @@ def main():
 
     mitm.stop_mitm()
     log_file.close()
+
 
 if __name__ == '__main__':
     main()

@@ -1,23 +1,15 @@
 import binascii
 import socket
-import struct
-import fcntl
+
+import netifaces
 
 from mitm_service.arp_poison.arp_poison import ARPPoisonService
 from mitm_service.tunneler.tunneler import L2Tunnel
+from network.network_utils import get_interface_mac, get_mac
 
 # linux ioctl constant
 SIOCGIFHWADDR = 0x8927
 
-def get_interface_mac(interface_name):
-    """
-    Gets the mac string of a given interface
-    :param interface_name: the name of the interface who's mac to get
-    :return: the mac address of the interface as a string
-    """
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    info = fcntl.ioctl(s.fileno(), SIOCGIFHWADDR,  struct.pack('256s', bytes(interface_name, 'utf-8')[:15]))
-    return ':'.join('%02x' % b for b in info[18:24])
 
 class MITMService:
     def __init__(self, interface, target_ip, gateway_ip, target_mac=None, gateway_mac=None):
@@ -26,8 +18,8 @@ class MITMService:
         self.gateway_ip = gateway_ip
         self.my_mac = get_interface_mac(self.interface)
 
-        self.target_mac = target_mac or ARPPoisonService.get_mac(self.target_ip, 5)
-        self.gateway_mac = gateway_mac or ARPPoisonService.get_mac(self.gateway_ip, 5)
+        self.target_mac = target_mac or get_mac(self.target_ip, 5)
+        self.gateway_mac = gateway_mac or get_mac(self.gateway_ip, 5)
 
         self.arp_poisoner = ARPPoisonService(
             target_ip=self.target_ip,

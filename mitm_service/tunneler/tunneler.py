@@ -13,6 +13,7 @@ class TunnelException(Exception):
 class BadLayerException(TunnelException):
     pass
 
+
 class DropPacketException(TunnelException):
     """
     An exception for a rule to raise when it wants to drop a packet entirely
@@ -31,6 +32,7 @@ def _create_raw_ip_socket(interface):
     raw_sock.bind((interface, L3_PROTO_IP))
 
     return raw_sock
+
 
 class L2Tunnel:
     """
@@ -145,7 +147,7 @@ class L2Tunnel:
         recv_l4_header, l4_payload = self.apply_filters(layer=4, header=recv_l4_header, payload=l4_payload)
 
         # recalculate ip checksum
-        recv_ipheader.fill_payload_dependent_fields(recv_l4_header.get_raw_header()+l4_payload)
+        recv_ipheader.fill_payload_dependent_fields(recv_l4_header.get_raw_header() + l4_payload)
 
         raw_packet_data = b''
         raw_packet_data += recv_etherheader.get_raw_header()
@@ -201,4 +203,3 @@ class L2Tunnel:
         self._should_forward = False
         self._forward_thread.join()
         self._forward_thread = None
-

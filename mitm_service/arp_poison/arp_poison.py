@@ -1,8 +1,9 @@
-import threading
 from time import sleep
 
 from scapy.all import *
-from scapy.layers.l2 import Ether, ARP
+from scapy.layers.l2 import ARP
+
+from network.network_utils import get_mac
 
 ARP_REQUEST = 1
 ARP_REPLY = 2
@@ -15,29 +16,6 @@ logger = logging.getLogger()
 
 
 class ARPPoisonService:
-    @staticmethod
-    def get_mac(target_ip, mac_resolve_max_tries):
-        """
-        queries network for MAC address corresponding to :param target_ip
-        :param target_ip: IP address
-        :return: mac address that matches :param target_ip
-        """
-        arp_response = None
-        try_count = 0
-
-        while not arp_response:
-            if try_count > mac_resolve_max_tries:
-                raise ValueError("cannot resolve {}. are you sure it exists ?".format(target_ip))
-
-            logger.info("sending who-has for {}".format(target_ip))
-            arp_request = Ether(dst=BROADCAST_MAC) / ARP(op=ARP_REQUEST, pdst=target_ip)
-            arp_response = srp1(arp_request, timeout=ARP_REQUEST_TIMEOUT, verbose=False)
-            try_count += 1
-
-        target_mac = arp_response[ARP].hwsrc
-        logger.info("got mac: {}".format(target_mac))
-        return target_mac
-
     @staticmethod
     def _poison_arp_cache(target_ip, target_mac, ip_to_spoof):
         """
@@ -61,10 +39,10 @@ class ARPPoisonService:
         :param interval: how often to run arp poison
         """
         self.target_ip = target_ip
-        self.target_mac = target_mac or type(self).get_mac(self.target_ip, mac_resolve_max_tries)
+        self.target_mac = target_mac or get_mac(self.target_ip, mac_resolve_max_tries)
 
         self.gateway_ip = gateway_ip
-        self.gateway_mac = gateway_mac or ARPPoisonService.get_mac(self.gateway_ip, mac_resolve_max_tries)
+        self.gateway_mac = gateway_mac or get_mac(self.gateway_ip, mac_resolve_max_tries)
 
         self.interval = interval
         self._should_spoof = False
