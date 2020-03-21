@@ -1,6 +1,6 @@
 from socket import *
+from scapy.all import *
 import threading
-from mitm_service.tunneler.network_headers import *
 
 L3_PROTO_IP = 0x0800
 MAX_BUF_SIZE = 0xffffffff
@@ -38,124 +38,59 @@ class L2Tunnel:
     """
     A class for handling tunnel forwarding on layer 2
     """
-    FILTER_CAPABLE_LAYERS = [2, 3, 4]
-
-    PARSE_L4_FUNCTIONS = {
-        IPPROTO_UDP: UdpHeader.parse_raw_header,
-        IPPROTO_TCP: TcpHeader.parse_raw_header,
-    }
-
     def __init__(self, target_mac, gateway_mac, my_mac, target_ip, interface):
         self.target_mac = target_mac
         self.gateway_mac = gateway_mac
         self.my_mac = my_mac
-        self._raw_sock = _create_raw_ip_socket(interface)
+        self._scapy_socket = conf.L2socket(iface=interface, filter='host {}'.format(target_ip))
         self._should_forward = False
         self._forward_thread = None
-        self._filters_by_layer = {}
-        self.target_ip = inet_aton(target_ip)
-        for layer_num in type(self).FILTER_CAPABLE_LAYERS:
-            self._filters_by_layer[layer_num] = []
+        self._packet_filters = []
+        self.target_ip = target_ip
 
-    def add_filter_to_layer(self, layer, resolution_index, protocol_filter):
+    def add_filter(self, resolution_index, pkt_filter):
         """
-        Add a filter at the given protocol layer for a given priority
+        Add a filter at a given priority
         :param layer: The layer number to insert this rule at (must be one of the options in L2Tunnel.PARSE_CAPABLE_LAYERS)
         :param resolution_index: The index at which to insert the rule into the processing queue. Rules are resolved in
                                  the order of their resolution index, so a rule with a low resolution index is resolved
                                  before a rule with a high resolution index. If the resolution index is greater than the
                                  number of filters in the processing queue, then it is inserted at the end of the queue
-        :param protocol_filter: A callable that expects this layer's header and payload, modifies them, and returns them modified
+        :param pkt_filter: A callable that expects a scapy packet, modifies it, and returns it modified
         :return: None
         """
-        if layer not in type(self).FILTER_CAPABLE_LAYERS:
-            raise BadLayerException('This tunnel does not support filtering on layer {} (only on layers {})'.format(
-                layer,
-                type(self).FILTER_CAPABLE_LAYERS
-            ))
+        self._packet_filters.insert(resolution_index, pkt_filter)
 
-        self._filters_by_layer[layer].insert(resolution_index, protocol_filter)
-
-    def apply_filters(self, layer, header, payload):
+    def repackage_frame(self, scapy_pkt):
         """
-        Apply the filters for a given layer sequentially on the provided header/payload.
-        NOTE: The provided header and payload must be valid headers/payloads for protocols of layer type :param layer
-        :param layer: The layer number who's filters to use
-        :param header: the header to process
-        :param payload: the payload to process
-        :return: the header and payload after being modified by the layer filters
+        Take a raw frame as scapy packet and change its MAC addresses according to the target and gateway mac addresses
+        :param scapy_pkt: the raw frame as a scapy packet
+        :return: a scapy packet object of the raw bytes of the new frame (changed mac addresses)
         """
-        for protocol_filter in self._filters_by_layer[layer]:
-            header, payload = protocol_filter(header, payload)
-        return header, payload
-
-    def repackage_frame(self, raw_frame):
-        """
-        Take a raw frame as bytes and change its MAC addresses according to the target and gateway mac addresses
-        :param raw_frame: the raw frame as bytes
-        :return: a bytes object of the raw bytes of the new frame (changed mac addresses)
-        """
-        raw_ether_header = raw_frame[:EtherHeader.TOTAL_HEADER_LEN]
-        parsed_ether_header, ether_header_len = EtherHeader.parse_raw_header(raw_ether_header)
 
         # if its coming from the gateway, its meant for the target
-        if parsed_ether_header.src_addr == self.gateway_mac:
-            parsed_ether_header.src_addr = self.my_mac
-            parsed_ether_header.dst_addr = self.target_mac
+        if scapy_pkt[Ether].src == self.gateway_mac:
+            scapy_pkt[Ether].src = self.my_mac
+            scapy_pkt[Ether].dst = self.target_mac
 
         # if its coming from the target, its meant for the gateway
-        elif parsed_ether_header.src_addr == self.target_mac:
-            parsed_ether_header.src_addr = self.my_mac
-            parsed_ether_header.dst_addr = self.gateway_mac
+        elif scapy_pkt[Ether].src == self.target_mac:
+            scapy_pkt[Ether].src = self.my_mac
+            scapy_pkt[Ether].dst = self.gateway_mac
 
-        return parsed_ether_header.get_raw_header() + raw_frame[EtherHeader.TOTAL_HEADER_LEN:]
+        return scapy_pkt
 
-    def filter_layers(self, raw_data):
+    def filter_layers(self, received_scapy_packet):
         """
         Take in raw data, parse it protocol layers, and apply this tunnel's protocol filters to each layer
         :param raw_data: The raw data of the frame (all data, including layer 2)
         :return: the raw bytes data of the disrupted frame
         """
-        # receive and disrupt l2
-        recv_etherheader, recv_etherheader_len = EtherHeader.parse_raw_header(raw_data[:EtherHeader.TOTAL_HEADER_LEN])
-        l2_payload = raw_data[recv_etherheader_len:]
-        recv_etherheader, l2_payload = self.apply_filters(layer=2, header=recv_etherheader, payload=l2_payload)
+        modified_packet = received_scapy_packet
+        for pkt_filter in self._packet_filters:
+            modified_packet = pkt_filter(modified_packet)
+        return modified_packet
 
-        # receive and disrupt l3
-        raw_ip_header = l2_payload[:IpHeader.DEFAULT_HEADER_SIZE]
-        recv_ipheader, ip_header_len = IpHeader.parse_raw_header(raw_ip_header)
-        l3_payload = l2_payload[ip_header_len:]
-        recv_ipheader, l3_payload = self.apply_filters(layer=3, header=recv_ipheader, payload=l3_payload)
-
-        # receive and disrupt l4
-        if recv_ipheader.proto in type(self).PARSE_L4_FUNCTIONS:
-            recv_l4_header, l4_header_len = type(self).PARSE_L4_FUNCTIONS[recv_ipheader.proto](l3_payload)
-        else:
-            recv_l4_header, l4_header_len = UnknownProtocol.parse_raw_header(l3_payload)
-
-        # add the pseudo header bytes to the l4 header object, this doesnt happen in the parse because the parse doesnt
-        # see the necessary l3 info
-        pseudo_header = generate_pseudo_header(
-            recv_ipheader.src_ip,
-            recv_ipheader.dst_ip,
-            recv_ipheader.proto,
-            recv_ipheader.tot_len
-        )
-        recv_l4_header.pseudo_header = pseudo_header
-
-        l4_payload = l3_payload[l4_header_len:]
-        recv_l4_header, l4_payload = self.apply_filters(layer=4, header=recv_l4_header, payload=l4_payload)
-
-        # recalculate ip checksum
-        recv_ipheader.fill_payload_dependent_fields(recv_l4_header.get_raw_header() + l4_payload)
-
-        raw_packet_data = b''
-        raw_packet_data += recv_etherheader.get_raw_header()
-        raw_packet_data += recv_ipheader.get_raw_header()
-        raw_packet_data += recv_l4_header.get_raw_header()
-        raw_packet_data += l4_payload
-
-        return raw_packet_data
 
     def forward_loop(self):
         """
@@ -163,25 +98,23 @@ class L2Tunnel:
         :return: None
         """
         while self._should_forward:
-            data, addr = self._raw_sock.recvfrom(MAX_BUF_SIZE)
-
-            # TODO: figure out what x y and z are
-            recv_iface, x, y, z, src_mac_addr = addr
+            scapy_frame = self._scapy_socket.recv()
 
             # TODO: Replace this with a bpf on the socket itself
-            recv_ipheader, recv_ipheader_len = IpHeader.parse_raw_header(data[EtherHeader.TOTAL_HEADER_LEN:])
-            if recv_ipheader.dst_ip != self.target_ip and recv_ipheader.src_ip != self.target_ip:
+            if scapy_frame is None or IP not in scapy_frame:
+                continue
+            if scapy_frame[IP].src != self.target_ip and scapy_frame[IP].dst != self.target_ip:
                 continue
 
             try:
-                disrupted_packet = self.filter_layers(data)
+                filtered_packet = self.filter_layers(scapy_frame)
             except DropPacketException:
                 # some filter in filter_layers raised a drop packet exception, so drop this packet
                 continue
 
-            repackaged_frame = self.repackage_frame(disrupted_packet)
+            repackaged_frame = self.repackage_frame(filtered_packet)
             try:
-                self._raw_sock.sendto(repackaged_frame, (recv_iface, x, y, z, self.my_mac))
+                self._scapy_socket.send(repackaged_frame)
             except OSError:
                 # usually means the frame was too long to send, best effort, so ignore it and move on
                 pass

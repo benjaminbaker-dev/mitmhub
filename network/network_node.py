@@ -42,11 +42,11 @@ class NetworkNode:
     def stop_mitm(self):
         self.mitm_service.stop_mitm()
 
-    def add_disruption_rule(self, *args, **kwargs):
-        self.mitm_service.add_disruption_rule(*args, **kwargs)
+    def add_filter(self, *args, **kwargs):
+        self.mitm_service.add_filter(*args, **kwargs)
 
-    def restore_layer_traffic(self, layer):
-        self.mitm_service.add_disruption_rule(layer, lambda header, payload: (header, payload))
+    def restore_traffic(self):
+        self.mitm_service.l2_tunnel._packet_filters = []
 
     def __repr__(self):
         repr_str = "NetworkNode(ip={}, mac={}, tags={})".format(self.ip, self.mac, self.tags)

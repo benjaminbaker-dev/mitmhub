@@ -30,9 +30,9 @@ class MITMService:
         )
 
         self.l2_tunnel = L2Tunnel(
-            target_mac=self.target_mac_bytes,
-            gateway_mac=self.gateway_mac_bytes,
-            my_mac=self.my_mac_bytes,
+            target_mac=self.target_mac,
+            gateway_mac=self.gateway_mac,
+            my_mac=self.my_mac,
             target_ip=self.target_ip,
             interface=self.interface
         )
@@ -65,6 +65,6 @@ class MITMService:
         self.arp_poisoner.stop_mitm()
         self.l2_tunnel.stop_forward_thread()
 
-    def add_filter_to_layer(self, *args, **kwargs):
-        return self.l2_tunnel.add_filter_to_layer(*args, **kwargs)
+    def add_filter(self, *args, **kwargs):
+        return self.l2_tunnel.add_filter(*args, **kwargs)
 
