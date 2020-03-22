@@ -17,7 +17,7 @@ def generate_ip_redirect_rule(target_ip, redirect_ip):
     Factory function to generate a filter that swaps ips
     :param target_ip: the dest ip to swap from
     :param redirect_ip: the source ip to swap to
-    :return: a filter function (takes a header and payload, returns a header and payload)
+    :return: a filter function (takes a scapy packet, returns a scapy packet)
     """
     target_ip = inet_aton(target_ip)
     redirect_ip = inet_aton(redirect_ip)
@@ -29,7 +29,7 @@ def generate_ip_redirect_rule(target_ip, redirect_ip):
 
         ip_header = scapy_pkt[IP]
         if ip_header.dst != target_ip and ip_header.src != redirect_ip:
-            return ip_header, ip_payload
+            return scapy_pkt
 
         if ip_header.dst == target_ip:
             print('Redirecting packet meant for {} to {}'.format(ip_header.dst_ip_str, inet_ntoa(redirect_ip)))

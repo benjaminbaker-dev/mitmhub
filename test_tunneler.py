@@ -5,7 +5,7 @@ from mitm_service.mitm_service import MITMService
 
 
 def main():
-    target = '192.168.1.118'
+    target = '192.168.1.115'
     gateway = '192.168.1.1'
 
     mitm = MITMService('eno1', target, gateway)
@@ -14,7 +14,7 @@ def main():
     log_file = open('dns_log.txt', 'w')
     log_dns_rule = protocol_filters.generate_dns_log_rule(log_file)
     #redirect_dns_filter = protocol_filters.generate_dns_reassign_rule('www.amazon.com', '104.16.41.71')
-    #mitm.add_filter(0, log_dns_rule)
+    mitm.add_filter(0, log_dns_rule)
 
     mitm.start_mitm()
 
