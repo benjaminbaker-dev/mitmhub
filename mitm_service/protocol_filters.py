@@ -1,5 +1,5 @@
 from socket import inet_aton, inet_ntoa, IPPROTO_UDP, IPPROTO_TCP
-from mitm_service.tunneler.network_headers import TcpHeader, UdpHeader, IpHeader
+from scapy.all import *
 import dnslib
 import time
 
@@ -17,39 +17,29 @@ def generate_ip_redirect_rule(target_ip, redirect_ip):
     Factory function to generate a filter that swaps ips
     :param target_ip: the dest ip to swap from
     :param redirect_ip: the source ip to swap to
-    :return: a filter function (takes a header and payload, returns a header and payload)
+    :return: a filter function (takes a scapy packet, returns a scapy packet)
     """
     target_ip = inet_aton(target_ip)
     redirect_ip = inet_aton(redirect_ip)
 
-    def disrupt_ip_traffic(ip_header, ip_payload):
-        if not isinstance(ip_header, IpHeader):
+    def disrupt_ip_traffic(scapy_pkt):
+        if IP not in scapy_pkt:
             # not an ip packet so ignore
-            return ip_header, ip_payload
+            return scapy_pkt
 
-        if ip_header.dst_ip != target_ip and ip_header.src_ip != redirect_ip:
-            return ip_header, ip_payload
+        ip_header = scapy_pkt[IP]
+        if ip_header.dst != target_ip and ip_header.src != redirect_ip:
+            return scapy_pkt
 
-        if ip_header.dst_ip == target_ip:
+        if ip_header.dst == target_ip:
             print('Redirecting packet meant for {} to {}'.format(ip_header.dst_ip_str, inet_ntoa(redirect_ip)))
-            ip_header.dst_ip = redirect_ip
+            ip_header.dst = redirect_ip
 
-        elif ip_header.src_ip == redirect_ip:
+        elif ip_header.src == redirect_ip:
             print('Spoofing packet origin from {} to {}'.format(ip_header.src_ip_str, inet_ntoa(target_ip)))
-            ip_header.src_ip = target_ip
+            ip_header.src = target_ip
 
-        # adjust checksums, if they exist
-        if ip_header.proto == IPPROTO_TCP:
-            l4_header, l4_header_len = TcpHeader.parse_raw_header(ip_payload)
-        elif ip_header.proto == IPPROTO_UDP:
-            l4_header, l4_header_len = UdpHeader.parse_raw_header(ip_payload)
-        else:
-            return ip_header, ip_payload
-        l4_payload = ip_payload[l4_header_len:]
-        l4_header.checksum = 0
-        ip_payload = l4_header.get_raw_header() + l4_payload
-
-        return ip_header, ip_payload
+        return scapy_pkt
 
     return disrupt_ip_traffic
 
@@ -65,14 +55,14 @@ def generate_dns_reassign_rule(domain_name, new_ip, dns_port=DNS_PORT):
     domain_name = dnslib.DNSLabel(domain_name)
     new_ip = dnslib.dns.A(new_ip)
 
-    def disrupt_dns_traffic(udp_header, udp_payload):
-        if not isinstance(udp_header, UdpHeader) or udp_header.src_port != dns_port:
-            return udp_header, udp_payload
+    def disrupt_dns_traffic(scapy_pkt):
+        if UDP not in scapy_pkt or scapy_pkt[UDP].sport != dns_port:
+            return scapy_pkt
 
-        record = dnslib.DNSRecord.parse(udp_payload)
+        record = dnslib.DNSRecord.parse(bytes(scapy_pkt[UDP].payload))
         # QR == bit that says if we a re a query or response
         if record.header.qr != DNS_RESPONSE:
-            return udp_header, udp_payload
+            return scapy_pkt
 
         # rr == resource records
         answers = record.rr
@@ -83,10 +73,11 @@ def generate_dns_reassign_rule(domain_name, new_ip, dns_port=DNS_PORT):
             if answer.get_rname() == domain_name:
                 print('Redirecting response from {}/{} to {}...'.format(answer.get_rname(), answer.rdata, new_ip))
                 answer.rdata = new_ip
-        udp_payload = record.pack()
-        udp_header.checksum = 0
+        scapy_pkt[UDP].payload = Raw(record.pack())
+        scapy_pkt[UDP].len = len(scapy_pkt[UDP])
+        scapy_pkt[UDP].chksum = 0
 
-        return udp_header, udp_payload
+        return scapy_pkt
 
     return disrupt_dns_traffic
 
@@ -98,17 +89,23 @@ def generate_dns_log_rule(log_file_object, dns_port=DNS_PORT):
     :return: the filter function
     """
 
-    def log_dns_queries(udp_header, udp_payload):
-        if not isinstance(udp_header, UdpHeader) or udp_header.dst_port != dns_port:
-            return udp_header, udp_payload
+    def log_dns_queries(scapy_pkt):
+        if UDP not in scapy_pkt or scapy_pkt[UDP].dport != dns_port:
+            return scapy_pkt
+
+        udp_payload = bytes(scapy_pkt[UDP].payload)
 
         record = dnslib.DNSRecord.parse(udp_payload)
         if record.header.qr != DNS_QUERY:
-            return udp_header, udp_payload
+            return scapy_pkt
 
         first_question = record.get_q()
-        log_file_object.write('{}:\t{}\n'.format(time.ctime(), str(first_question.get_qname())))
+        log_file_object.write('{}:\t{} asked for {}\n'.format(
+            time.ctime(),
+            scapy_pkt[IP].src,
+            str(first_question.get_qname())
+        ))
 
-        return udp_header, udp_payload
+        return scapy_pkt
 
     return log_dns_queries
