@@ -10,7 +10,7 @@ BACKEND
 * install script
 * RPC (zerorpc)
 features:
-  * JSON represntation for Network and NetworkNode
+  * JSON representation for Network and NetworkNode
   * PCAP
   * Subprocesses instead of threads
   
