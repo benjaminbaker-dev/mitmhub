@@ -20,7 +20,6 @@ request_rules_list_json = {
 rules_list_response_json = {
    "node_id":"mac_of_node",
    "response":{
-      "success": "true"
       "func_name1": ["param_a", "param_b"],
       "func_name2": ["param_a", "param_b"],
     }
