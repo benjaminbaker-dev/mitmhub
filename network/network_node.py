@@ -3,7 +3,7 @@ import binascii
 
 from network.discovery import run_detailed_scan
 from mitm_service.mitm_service import MITMService
-
+import json
 
 class NetworkNode:
     def __init__(self, interface, ip, mac, gateway_ip, gateway_mac, tags=None):
@@ -47,6 +47,21 @@ class NetworkNode:
 
     def restore_traffic(self):
         self.mitm_service.l2_tunnel._packet_filters = []
+
+    def to_json(self):
+        json_repr = {
+            'interface':self.interface,
+            'ip':self.ip,
+            'mac':self.mac,
+            'gateway_ip':self.gateway_ip,
+            'gateway_mac':self.gateway_mac,
+            'tags': self.tags,
+            'is_mitm_running':self.mitm_service.is_mitm_running
+        }
+        return json_repr
+
+    def get_json_str(self):
+        return json.dumps(self.to_json())
 
     def __repr__(self):
         repr_str = "NetworkNode(ip={}, mac={}, tags={})".format(self.ip, self.mac, self.tags)
