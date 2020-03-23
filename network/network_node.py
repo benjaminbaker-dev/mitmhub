@@ -1,11 +1,18 @@
 import socket
 import binascii
+import inspect
 
 from network.discovery import run_detailed_scan
 from mitm_service.mitm_service import MITMService
+import mitm_service.protocol_filters as filters
 import json
 
 class NetworkNode:
+    SUPPORTED_FILTERS = {
+        'reassign_dns_results': filters.generate_dns_reassign_rule,
+        'log_dns_requests': filters.generate_dns_log_rule,
+        'redirect_ip_addresses': filters.generate_ip_redirect_rule
+    }
     def __init__(self, interface, ip, mac, gateway_ip, gateway_mac, tags=None):
         self.interface = interface
         self.ip = ip
@@ -62,6 +69,42 @@ class NetworkNode:
 
     def get_json_str(self):
         return json.dumps(self.to_json())
+
+    def json_query_supported_filters(self):
+        """
+        Return a json of this node's supported filters of form:
+        {
+        filter_name:[filter_param_1, filter_param_2, ...],
+        ...
+        }
+        :return: dict
+        """
+        response = {}
+        for filter_name, filter_function in type(self).SUPPORTED_FILTERS.items():
+            response[filter_name] = list(inspect.signature(filter_function).parameters)
+        return response
+
+    def json_add_rule(self, node_json_request):
+        """
+        Add rule requested by the submitted node_json_request
+        :param node_json_request: json of the form:
+            {
+            filter_name: [filter_param_value_1, filter_param_value_2, ...],
+            ...
+            }
+        :return:error response as dict
+        """
+        try:
+            for filter_name, filter_args in node_json_request.items():
+                filter_function = type(self).SUPPORTED_FILTERS[filter_name](*filter_args)
+                self.add_filter(0, filter_function)
+            return {'success': True}
+        except Exception as e:
+            error_response = {
+                'error_code': str(e),
+                'success': False
+            }
+            return error_response
 
     def __repr__(self):
         repr_str = "NetworkNode(ip={}, mac={}, tags={})".format(self.ip, self.mac, self.tags)

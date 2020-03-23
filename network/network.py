@@ -48,7 +48,70 @@ class Network:
     def refresh_network(self):
         self.nodes = self._generate_nodes()
 
+    def get_node_by_mac(self, mac_addr):
+        """
+        Given a unique mac, get the network node with that mac
+        :param mac_addr: mac to search
+        :return: node on this network with the given mac, or None if none match
+        """
+        for node in self.nodes:
+            if node.mac == mac_addr:
+                return node
+        return None
+
+    def json_node_query_supported_rules(self, query_json):
+        """
+        Query the supported rules of a specific node
+        :param query_json: a json of the form:
+            {
+            "node_id":<mac_of_node>
+            }
+            as a STRING.
+        :return: the response to the query as a STRING
+        """
+        query_json = json.loads(query_json)
+        node_mac = query_json['node_id']
+        node = self.get_node_by_mac(node_mac)
+        if node is None:
+            supported_functions = {}
+        else:
+            supported_functions = node.json_query_supported_filters()
+        response_json = {
+            'node_id': node_mac,
+            'response': supported_functions
+        }
+        return json.dumps(response_json)
+
+    def json_node_request_add_rule(self, query_json):
+        """
+        Request a specific node to add a rule
+        :param query_json: a json of the form:
+            {
+            "node_id":<mac_of_node>,
+            "request":{
+                "filter_name":["filter_arg_1", "filter_arg_2", ...],
+                ...
+                }
+            }
+            as a STRING
+        :return: response json as a STRING
+        """
+        query_json = json.loads(query_json)
+        node_mac = query_json['node_id']
+        node = self.get_node_by_mac(node_mac)
+        add_rule_result = node.json_add_rule(query_json['request'])
+        response_json = {
+            'node_id': node_mac,
+            'response': add_rule_result
+        }
+        return json.dumps(response_json)
+
+
     def to_json(self):
+        """
+        dump a json representation of the network
+        :return:
+        """
         nodes_json = []
         for node in self.nodes:
             nodes_json.append(node.to_json())
