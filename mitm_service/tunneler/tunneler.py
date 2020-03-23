@@ -38,6 +38,7 @@ class L2Tunnel:
     """
     A class for handling tunnel forwarding on layer 2
     """
+    TUNNEL_COLLAPSE_TIMEOUT = 5
     def __init__(self, target_mac, gateway_mac, my_mac, target_ip, interface):
         self.target_mac = target_mac
         self.gateway_mac = gateway_mac
@@ -134,5 +135,7 @@ class L2Tunnel:
         :return: None
         """
         self._should_forward = False
-        self._forward_thread.join()
+        self._forward_thread.join(type(self).TUNNEL_COLLAPSE_TIMEOUT)
+        if self._forward_thread.is_alive():
+            self._forward_thread.terminate()
         self._forward_thread = None

@@ -5,7 +5,7 @@ from mitm_service.mitm_service import MITMService
 
 
 def main():
-    target = '192.168.1.115'
+    target = '192.168.1.118'
     gateway = '192.168.1.1'
 
     mitm = MITMService('eno1', target, gateway)
@@ -18,11 +18,10 @@ def main():
 
     mitm.start_mitm()
 
-    try:
-        while True:
-            pass
-    except KeyboardInterrupt:
-        pass
+    while True:
+        if(input() == 'q'):
+            break
+
 
     mitm.stop_mitm()
     log_file.close()

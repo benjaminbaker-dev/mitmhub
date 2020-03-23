@@ -30,6 +30,7 @@ def get_mac(target_ip, max_resolve_max_tries=5):
     try_count = 0
 
     while not arp_response:
+        print('Sending ARP request for {}'.format(target_ip))
         if try_count > max_resolve_max_tries:
             raise ValueError("cannot resolve {}. are you sure it exists ?".format(target_ip))
 
@@ -38,6 +39,7 @@ def get_mac(target_ip, max_resolve_max_tries=5):
         try_count += 1
 
     target_mac = arp_response[ARP].hwsrc
+    print('Got MAC: {}'.format(target_mac))
     return target_mac
 
 

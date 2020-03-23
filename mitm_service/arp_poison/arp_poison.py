@@ -17,6 +17,7 @@ logger = logging.getLogger()
 
 
 class ARPPoisonService:
+    POISON_COLLAPSE_TIMEOUT = 5
     @staticmethod
     def _poison_arp_cache(target_ip, target_mac, ip_to_spoof):
         """
@@ -74,5 +75,7 @@ class ARPPoisonService:
 
     def stop_mitm(self):
         self._should_spoof = False
-        self._spoof_thread.join()
+        self._spoof_thread.join(type(self).POISON_COLLAPSE_TIMEOUT)
+        if self._spoof_thread.is_alive():
+            self._spoof_thread.terminate()
         self._restore_normal_arp()
