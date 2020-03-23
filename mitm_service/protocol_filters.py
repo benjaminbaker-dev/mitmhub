@@ -101,11 +101,7 @@ def generate_dns_log_rule(log_file_object, dns_port=DNS_PORT):
             return scapy_pkt
 
         first_question = record.get_q()
-        print('{}:\t{} asked for {}'.format(
-            time.ctime(),
-            scapy_pkt[IP].src,
-            str(first_question.get_qname())
-        ))
+
         log_file_object.write('{}:\t{} asked for {}\n'.format(
             time.ctime(),
             scapy_pkt[IP].src,
