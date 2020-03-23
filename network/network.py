@@ -1,5 +1,6 @@
 import socket
 import binascii
+import json
 
 from network import network_utils
 from . import discovery
@@ -46,3 +47,18 @@ class Network:
 
     def refresh_network(self):
         self.nodes = self._generate_nodes()
+
+    def to_json(self):
+        nodes_json = []
+        for node in self.nodes:
+            nodes_json.append(node.to_json())
+        json_repr = {
+            'network_name': self.name,
+            'network_gateway': self.gateway_ip,
+            'network_interface': self.interface,
+            'network_nodes': nodes_json
+        }
+        return json_repr
+
+    def get_json_str(self):
+        return json.dumps(self.to_json())

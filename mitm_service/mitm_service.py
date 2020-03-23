@@ -20,6 +20,7 @@ class MITMService:
 
         self.target_mac = target_mac or get_mac(self.target_ip, 5)
         self.gateway_mac = gateway_mac or get_mac(self.gateway_ip, 5)
+        self._is_mitm_running = False
 
         self.arp_poisoner = ARPPoisonService(
             target_ip=self.target_ip,
@@ -57,11 +58,17 @@ class MITMService:
     def gateway_ip_bytes(self):
         return socket.inet_aton(self.gateway_ip)
 
+    @property
+    def is_mitm_running(self):
+        return self._is_mitm_running
+
     def start_mitm(self):
         self.arp_poisoner.start_mitm()
         self.l2_tunnel.start_forward_thread()
+        self._is_mitm_running = True
 
     def stop_mitm(self):
+        self._is_mitm_running = False
         self.arp_poisoner.stop_mitm()
         self.l2_tunnel.stop_forward_thread()
 
