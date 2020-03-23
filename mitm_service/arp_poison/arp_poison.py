@@ -1,4 +1,5 @@
 from time import sleep
+import multiprocessing
 
 from scapy.all import *
 from scapy.layers.l2 import ARP
@@ -68,7 +69,7 @@ class ARPPoisonService:
         logger.info("starting spoof")
 
         self._should_spoof = True
-        self._spoof_thread = threading.Thread(target=self._run_mitm, args=())
+        self._spoof_thread = multiprocessing.Process(target=self._run_mitm, args=())
         self._spoof_thread.start()
 
     def stop_mitm(self):

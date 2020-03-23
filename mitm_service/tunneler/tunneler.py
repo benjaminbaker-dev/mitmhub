@@ -1,6 +1,6 @@
 from socket import *
 from scapy.all import *
-import threading
+import multiprocessing
 
 L3_PROTO_IP = 0x0800
 MAX_BUF_SIZE = 0xffffffff
@@ -124,7 +124,7 @@ class L2Tunnel:
         Start this tunnel's forward_loop in a different thread, and signal that thread to start
         :return: None
         """
-        self._forward_thread = threading.Thread(target=self.forward_loop, args=())
+        self._forward_thread = multiprocessing.Process(target=self.forward_loop, args=())
         self._should_forward = True
         self._forward_thread.start()
 
