@@ -96,7 +96,7 @@ class NetworkNode:
         """
         try:
             for filter_name, filter_args in node_json_request.items():
-                filter_function = type(self).SUPPORTED_FILTERS[filter_name](*filter_args)
+                filter_function = type(self).SUPPORTED_FILTERS[filter_name](**filter_args)
                 self.add_filter(0, filter_function)
             return {'success': True}
         except Exception as e:

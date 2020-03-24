@@ -59,6 +59,33 @@ class Network:
                 return node
         return None
 
+    def start_mitm_by_mac(self, node_mac):
+        """
+        Start a mitm on the node with the given MAC
+        :param node_mac: the mac to start on
+        :return: None
+        """
+        node = self.get_node_by_mac(node_mac)
+        node.start_mitm()
+
+    def stop_mitm_by_mac(self, node_mac):
+        """
+        Stop a mitm on the node with the given MAC
+        :param node_mac: the mac to stop the mitm on
+        :return: None
+        """
+        node = self.get_node_by_mac(node_mac)
+        node.stop_mitm()
+
+    def get_node_data_by_mac(self, node_mac):
+        """
+        Get the json representation of a node based on its MAC
+        :param node_mac: the mac whose data to fetch
+        :return: The json of the node data as STRING
+        """
+        node = self.get_node_by_mac(node_mac)
+        return json.dumps(node.to_json())
+
     def json_node_query_supported_rules(self, query_json):
         """
         Query the supported rules of a specific node
@@ -89,7 +116,11 @@ class Network:
             {
             "node_id":<mac_of_node>,
             "request":{
-                "filter_name":["filter_arg_1", "filter_arg_2", ...],
+                "filter_name":{
+                    "filter_arg_1":"value_1",
+                    "filter_arg_2":"value_2",
+                    ...
+                },
                 ...
                 }
             }
