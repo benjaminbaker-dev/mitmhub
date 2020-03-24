@@ -6,16 +6,14 @@ FRONTEND:
 * display and remove rules
 
 BACKEND
-* install script
-* RPC (zerorpc)
 features:
-  * JSON representation for Network and NetworkNode
   * PCAP
-  * Subprocesses instead of threads
+  * Subprocesses instead of threads (CR)
   
 request_rules_list_json = {
   "node_id":"mac_of_node"
 } 
+
 rules_list_response_json = {
    "node_id":"mac_of_node",
    "response":{
