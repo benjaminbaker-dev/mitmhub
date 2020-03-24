@@ -6,6 +6,7 @@ FRONTEND:
 * display and remove rules
 
 BACKEND
+* display and remove rules
 features:
   * PCAP
   * Subprocesses instead of threads (CR)
