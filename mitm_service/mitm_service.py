@@ -59,11 +59,11 @@ class MITMService:
 
     def start_mitm(self):
         self.arp_poisoner.start_mitm()
-        self.l2_tunnel.start_forward_thread()
+        self.l2_tunnel.start_forward_process()
 
     def stop_mitm(self):
         self.arp_poisoner.stop_mitm()
-        self.l2_tunnel.stop_forward_thread()
+        self.l2_tunnel.stop_forward_process()
 
     def add_filter(self, *args, **kwargs):
         return self.l2_tunnel.add_filter(*args, **kwargs)

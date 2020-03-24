@@ -48,7 +48,7 @@ class ARPPoisonService:
 
         self.interval = interval
         self._should_spoof = False
-        self._spoof_thread = None
+        self._spoof_process = None
 
     def _run_mitm(self):
         """
@@ -70,12 +70,12 @@ class ARPPoisonService:
         logger.info("starting spoof")
 
         self._should_spoof = True
-        self._spoof_thread = multiprocessing.Process(target=self._run_mitm, args=())
-        self._spoof_thread.start()
+        self._spoof_process = multiprocessing.Process(target=self._run_mitm, args=())
+        self._spoof_process.start()
 
     def stop_mitm(self):
         self._should_spoof = False
-        self._spoof_thread.join(type(self).POISON_COLLAPSE_TIMEOUT)
-        if self._spoof_thread.is_alive():
-            self._spoof_thread.terminate()
+        self._spoof_process.join(type(self).POISON_COLLAPSE_TIMEOUT)
+        if self._spoof_process.is_alive():
+            self._spoof_process.terminate()
         self._restore_normal_arp()

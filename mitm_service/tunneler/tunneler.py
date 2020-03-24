@@ -45,7 +45,7 @@ class L2Tunnel:
         self.my_mac = my_mac
         self._scapy_socket = conf.L2socket(iface=interface, filter='host {}'.format(target_ip))
         self._should_forward = False
-        self._forward_thread = None
+        self._forward_process = None
         self._packet_filters = []
         self.target_ip = target_ip
 
@@ -120,22 +120,22 @@ class L2Tunnel:
                 # usually means the frame was too long to send, best effort, so ignore it and move on
                 pass
 
-    def start_forward_thread(self):
+    def start_forward_process(self):
         """
         Start this tunnel's forward_loop in a different thread, and signal that thread to start
         :return: None
         """
-        self._forward_thread = multiprocessing.Process(target=self.forward_loop, args=())
+        self._forward_process = multiprocessing.Process(target=self.forward_loop, args=())
         self._should_forward = True
-        self._forward_thread.start()
+        self._forward_process.start()
 
-    def stop_forward_thread(self):
+    def stop_forward_process(self):
         """
         Signal this tunnel's forward thread to stop and wait for it to join
         :return: None
         """
         self._should_forward = False
-        self._forward_thread.join(type(self).TUNNEL_COLLAPSE_TIMEOUT)
-        if self._forward_thread.is_alive():
-            self._forward_thread.terminate()
-        self._forward_thread = None
+        self._forward_process.join(type(self).TUNNEL_COLLAPSE_TIMEOUT)
+        if self._forward_process.is_alive():
+            self._forward_process.terminate()
+        self._forward_process = None
