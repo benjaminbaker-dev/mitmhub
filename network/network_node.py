@@ -116,7 +116,7 @@ class NetworkNode:
         :param request: the request json to process
         :return: error response as dict
         """
-        filter_index = request['filter_index']
+        filter_index = int(request['filter_index'])
         self.remove_filter(filter_index)
         return {'success': True}
 

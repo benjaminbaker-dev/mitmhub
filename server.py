@@ -22,26 +22,45 @@ def get_tags():
     try:
         mac = request.json["node_id"]
         network.run_detailed_scan_on_node(mac)
-        return jsonify({"status": "Success"})
+        return jsonify({"status": "Successfully got tags"})
     except Exception as e:
         return jsonify({"status": "Error: {}".format(e)})
 
 
 @app.route("/api/get_rules", methods=["POST"])
 @cross_origin()
-def get_rules_for_node():
+def get_available_rules_for_node():
     try:
         return network.json_node_query_supported_rules(request.json)
     except Exception as e:
         return jsonify({"status": "Error: {}".format(e)})
 
 
+@app.route("/api/get_running_rules", methods=["POST"])
+@cross_origin()
+def get_running_rules_for_node():
+    try:
+        return network.json_node_query_active_rules(request.json)
+    except Exception as e:
+        return jsonify({"status": "Error: {}".format(e)})
+
+
 @app.route("/api/set_rule", methods=["POST"])
 @cross_origin()
-def set_rules_for_node():
+def add_rule_for_node():
     try:
         network.json_node_request_add_rule(request.json)
-        return jsonify({"status": "Success"})
+        return jsonify({"status": "Successfully added rule"})
+    except Exception as e:
+        return jsonify({"status": "Error: {}".format(e)})
+
+
+@app.route("/api/remove_rule", methods=["POST"])
+@cross_origin()
+def delete_rule_for_node():
+    try:
+        network.json_node_request_remove_rule(request.json)
+        return jsonify({"status": "Successfully removed rule"})
     except Exception as e:
         return jsonify({"status": "Error: {}".format(e)})
 
@@ -52,7 +71,7 @@ def start_mitm():
     try:
         mac = request.json["node_id"]
         network.start_mitm_by_mac(mac)
-        return jsonify({"status": "Success"})
+        return jsonify({"status": "Successfully started mitm"})
     except Exception as e:
         return jsonify({"status": "Error: {}".format(e)})
 
@@ -63,7 +82,7 @@ def stop_mitm():
     try:
         mac = request.json["node_id"]
         network.stop_mitm_by_mac(mac)
-        return jsonify({"status": "Success"})
+        return jsonify({"status": "Successfully stopped mitm"})
     except Exception as e:
         return jsonify({"status": "Error: {}".format(e)})
 
