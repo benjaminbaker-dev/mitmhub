@@ -2,9 +2,8 @@ mitmhub: Libraries and functionality to automatically perform Man-In-The-Middle 
 
 
 FRONTEND:
-* implement logic to actually get data
-* add indicator to whether mitm is running or not
-* editor window for configuration 
+* add indicator to whether mitm is running or not: change color
+* display and remove rules
 
 BACKEND
 * install script
