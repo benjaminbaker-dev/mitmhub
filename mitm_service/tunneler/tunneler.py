@@ -62,6 +62,14 @@ class L2Tunnel:
         """
         self._packet_filters.insert(resolution_index, pkt_filter)
 
+    def remove_filter(self, index):
+        """
+        Remove the filter at the given priority index
+        :param index: the index of the filter to remove
+        :return: None
+        """
+        self._packet_filters.pop(index)
+
     def repackage_frame(self, scapy_pkt):
         """
         Take a raw frame as scapy packet and change its MAC addresses according to the target and gateway mac addresses

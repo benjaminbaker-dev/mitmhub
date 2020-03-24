@@ -76,3 +76,6 @@ class MITMService:
     def add_filter(self, *args, **kwargs):
         return self.l2_tunnel.add_filter(*args, **kwargs)
 
+    def remove_filter(self, index):
+        return self.l2_tunnel.remove_filter(index)
+

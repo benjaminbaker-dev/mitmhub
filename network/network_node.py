@@ -54,6 +54,9 @@ class NetworkNode:
     def add_filter(self, *args, **kwargs):
         self.mitm_service.add_filter(*args, **kwargs)
 
+    def remove_filter(self, index):
+        self.mitm_service.remove_filter(index)
+
     def restore_traffic(self):
         self.mitm_service.l2_tunnel._packet_filters = []
 
@@ -85,6 +88,38 @@ class NetworkNode:
         for filter_name, filter_function in type(self).SUPPORTED_FILTERS.items():
             response[filter_name] = list(inspect.signature(filter_function).parameters)
         return response
+
+    def json_query_active_filters(self):
+        """
+        Get the currently active filters on this node by index, in a json of the form:
+        {
+        0:  {
+                'filter_name':'<name_of_filter>',
+                'filter_args':{'arg_name_1': <arg_val_1>, 'arg_name_2': <arg_val_2>, ...}
+            }
+            ...
+        }
+        :return: dict
+        """
+        response = {}
+        for i, filter_function in enumerate(self.mitm_service.l2_tunnel._packet_filters):
+            response[i] = {
+                'filter_name': filter_function.name,
+                'filter_args': filter_function.keyword_arguments
+            }
+        return response
+
+    def json_request_remove_filter(self, request):
+        """
+        Accepts a request json of form:
+        {'filter_index': <index_of_filter>}
+        :param request: the request json to process
+        :return: error response as dict
+        """
+        filter_index = request['filter_index']
+        self.remove_filter(filter_index)
+        return {'success': True}
+
 
     def json_add_rule(self, node_json_request):
         """

@@ -117,6 +117,24 @@ class Network:
         }
         return json.dumps(response_json)
 
+    def json_node_query_active_rules(self, query_json):
+        """
+        Query the active rules of a specific node
+        :param query_json: a json of the form:
+            {
+            "node_id":<mac_of_node>
+            }
+        :return: the response to the query as a STRING
+        """
+        node_mac = query_json['node_id']
+        node = self.get_node_by_mac(node_mac)
+        active_filters = node.json_query_active_filters()
+        response_json = {
+            'node_id': node_mac,
+            'response': active_filters
+        }
+        return json.dumps(response_json)
+
     def json_node_request_add_rule(self, query_json):
         """
         Request a specific node to add a rule
@@ -140,6 +158,27 @@ class Network:
         response_json = {
             'node_id': node_mac,
             'response': add_rule_result
+        }
+        return json.dumps(response_json)
+
+    def json_node_request_remove_rule(self, query_json):
+        """
+        Function to process json request to remove a rule
+        :param query_json: A json of the form:
+            {
+            "node_id":<mac_of_node>,
+            "request":{
+                "filter_index":<index_of_filter_to_remove>
+                }
+            }
+        :return: response json as STRING
+        """
+        node_mac = query_json['node_id']
+        node = self.get_node_by_mac(node_mac)
+        remove_rule_result = node.json_request_remove_filter(query_json['request'])
+        response_json = {
+            'node_id': node_mac,
+            'response': remove_rule_result
         }
         return json.dumps(response_json)
 
