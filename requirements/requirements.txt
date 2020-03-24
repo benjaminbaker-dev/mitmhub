@@ -2,3 +2,5 @@ scapy
 dnslib
 netifaces
 python-nmap
+flask
+flask_cors

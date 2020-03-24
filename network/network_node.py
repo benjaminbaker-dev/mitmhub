@@ -7,12 +7,14 @@ from mitm_service.mitm_service import MITMService
 import mitm_service.protocol_filters as filters
 import json
 
+
 class NetworkNode:
     SUPPORTED_FILTERS = {
         'reassign_dns_results': filters.generate_dns_reassign_rule,
         'log_dns_requests': filters.generate_dns_log_rule,
         'redirect_ip_addresses': filters.generate_ip_redirect_rule
     }
+
     def __init__(self, interface, ip, mac, gateway_ip, gateway_mac, tags=None):
         self.interface = interface
         self.ip = ip
@@ -57,13 +59,13 @@ class NetworkNode:
 
     def to_json(self):
         json_repr = {
-            'interface':self.interface,
-            'ip':self.ip,
-            'mac':self.mac,
-            'gateway_ip':self.gateway_ip,
-            'gateway_mac':self.gateway_mac,
+            'interface': self.interface,
+            'ip': self.ip,
+            'mac': self.mac,
+            'gateway_ip': self.gateway_ip,
+            'gateway_mac': self.gateway_mac,
             'tags': self.tags,
-            'is_mitm_running':self.mitm_service.is_mitm_running
+            'is_mitm_running': self.mitm_service.is_mitm_running
         }
         return json_repr
 

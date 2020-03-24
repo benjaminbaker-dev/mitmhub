@@ -34,15 +34,16 @@ class Network:
         for ip, scan_data in up_addresses_on_subnet.items():
             if scan_data['status']['reason'] == 'localhost-response':
                 continue
-            mac = scan_data["addresses"]["mac"]
 
-            node_list.append(NetworkNode(
-                interface=self.interface,
-                ip=ip,
-                mac=mac,
-                gateway_ip=self.gateway_ip,
-                gateway_mac=self.gateway_mac
-            ))
+            mac = scan_data["addresses"].get("mac")
+            if mac:
+                node_list.append(NetworkNode(
+                    interface=self.interface,
+                    ip=ip,
+                    mac=mac,
+                    gateway_ip=self.gateway_ip,
+                    gateway_mac=self.gateway_mac
+                ))
         return node_list
 
     def refresh_network(self):
@@ -58,6 +59,15 @@ class Network:
             if node.mac == mac_addr:
                 return node
         return None
+
+    def run_detailed_scan_on_node(self, mac_addr):
+        """
+        Given a unique mac, run detailed scan on corresponding node
+        :param mac_addr: mac to search
+        """
+        node = self.get_node_by_mac(mac_addr)
+        if node:
+            node.fill_detailed_tags()
 
     def start_mitm_by_mac(self, node_mac):
         """
@@ -93,10 +103,8 @@ class Network:
             {
             "node_id":<mac_of_node>
             }
-            as a STRING.
         :return: the response to the query as a STRING
         """
-        query_json = json.loads(query_json)
         node_mac = query_json['node_id']
         node = self.get_node_by_mac(node_mac)
         if node is None:
@@ -124,10 +132,8 @@ class Network:
                 ...
                 }
             }
-            as a STRING
         :return: response json as a STRING
         """
-        query_json = json.loads(query_json)
         node_mac = query_json['node_id']
         node = self.get_node_by_mac(node_mac)
         add_rule_result = node.json_add_rule(query_json['request'])
@@ -136,7 +142,6 @@ class Network:
             'response': add_rule_result
         }
         return json.dumps(response_json)
-
 
     def to_json(self):
         """
