@@ -6,6 +6,11 @@ from network import network_utils
 from . import discovery
 from .network_node import NetworkNode
 
+class NonexistentNodeException(Exception):
+    """
+    Exception to throw when an attempt is made to access a node that doesn't exist
+    """
+    pass
 
 class Network:
     def __init__(self, name):
@@ -58,7 +63,7 @@ class Network:
         for node in self.nodes:
             if node.mac.lower() == mac_addr.lower():
                 return node
-        return None
+        raise NonexistentNodeException('The node at {} does not exist on this network'.format(mac_addr))
 
     def run_detailed_scan_on_node(self, mac_addr):
         """
@@ -66,8 +71,7 @@ class Network:
         :param mac_addr: mac to search
         """
         node = self.get_node_by_mac(mac_addr)
-        if node:
-            node.fill_detailed_tags()
+        node.fill_detailed_tags()
 
     def start_mitm_by_mac(self, node_mac):
         """
@@ -107,10 +111,7 @@ class Network:
         """
         node_mac = query_json['node_id']
         node = self.get_node_by_mac(node_mac)
-        if node is None:
-            supported_functions = {}
-        else:
-            supported_functions = node.json_query_supported_filters()
+        supported_functions = node.json_query_supported_filters()
         response_json = {
             'node_id': node_mac,
             'response': supported_functions

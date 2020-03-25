@@ -131,17 +131,10 @@ class NetworkNode:
             }
         :return:error response as dict
         """
-        try:
-            for filter_name, filter_args in node_json_request.items():
-                filter_function = type(self).SUPPORTED_FILTERS[filter_name](**filter_args)
-                self.add_filter(0, filter_function)
-            return {'success': True}
-        except Exception as e:
-            error_response = {
-                'error_code': str(e),
-                'success': False
-            }
-            return error_response
+        for filter_name, filter_args in node_json_request.items():
+            filter_function = type(self).SUPPORTED_FILTERS[filter_name](**filter_args)
+            self.add_filter(0, filter_function)
+        return {'success': True}
 
     def __repr__(self):
         repr_str = "NetworkNode(ip={}, mac={}, tags={})".format(self.ip, self.mac, self.tags)
