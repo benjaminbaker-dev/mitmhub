@@ -12,7 +12,8 @@ class NetworkNode:
     SUPPORTED_FILTERS = {
         'reassign_dns_results': filters.generate_dns_reassign_rule,
         'log_dns_requests': filters.generate_dns_log_rule,
-        'redirect_ip_addresses': filters.generate_ip_redirect_rule
+        'redirect_ip_addresses': filters.generate_ip_redirect_rule,
+        'drop_packets': filters.generate_packet_drop_rule
     }
 
     def __init__(self, interface, ip, mac, gateway_ip, gateway_mac, tags=None):

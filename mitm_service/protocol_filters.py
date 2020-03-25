@@ -1,4 +1,5 @@
 from socket import inet_aton, inet_ntoa, IPPROTO_UDP, IPPROTO_TCP
+from mitm_service.tunneler.tunneler import DropPacketException
 from scapy.all import *
 import dnslib
 import time
@@ -10,6 +11,12 @@ DNS_RESPONSE = 1
 
 DNS_TYPE_IPV4 = 1
 DNS_TYPE_IPV6 = 28
+
+class InvalidStringFilter(Exception):
+    """
+    Exception to raise if string filter is invalid
+    """
+    pass
 
 class ProtocolFilter:
     """
@@ -27,6 +34,65 @@ class ProtocolFilter:
 
     def __call__(self, scapy_pkt):
         return self.filter_function(scapy_pkt)
+
+
+class StringPacketFilter:
+    @staticmethod
+    def parse_string_filter(string_filter):
+        """
+        Parse a string filter into its individual filter parameters
+        :param string_filter: string filters separated by  &&
+        :return: List of [<layername>, <field_name>, <comparator>, <value>]" if valid, exception if not
+        """
+        individual_filters = string_filter.split('&&')
+        parsed_filters = []
+        for filter_string in individual_filters:
+            filter_params = filter_string.split(" ")
+            if len(filter_params) not in (1, 4):
+                raise InvalidStringFilter(
+                    "Invalid Filter: {}\nFilter should have <layername> (<field_name> <comparator> <value>)".format(
+                        filter_string
+                    ))
+            if len(filter_params) == 4:
+                layer_name, field_name, comparator, value = filter_params
+                if comparator not in ('!=', '=='):
+                    raise InvalidStringFilter('Comparator {} is invalid. Must be != or =='.format(comparator))
+                parsed_filters.append((layer_name, field_name, comparator, value))
+            else:
+                layer_name, = filter_params
+                parsed_filters.append((layer_name, ))
+        return parsed_filters
+
+    def __init__(self, string_filters):
+        """
+         Accepts a string filter and constructs an object that can identify if scapy packets match that filter
+        :param string_filters: a list of strings of the form: "<layername> <field_name> <comparator> <value>" where:
+            layername is a valid scapy layer (ex.: UDP, TCP, IP, Ether, etc.)
+            field_name is a valid field for that layer (ex.: src, dst, sport, dport, etc.). Validity depends on the layername
+            comparator is == or !=
+            value is the value to check
+        """
+        self.string_filters = type(self).parse_string_filter(string_filters)
+
+    def does_packet_match(self, scapy_pkt):
+        for filter_params in self.string_filters:
+            layer_name = filter_params[0]
+            layer = scapy_pkt.getlayer(layer_name)
+            if layer is None:
+                return False
+            if len(filter_params) == 4:
+                field_name, comparator, value = filter_params[1:]
+                try:
+                    actual_value = layer.getfieldval(field_name)
+                except AttributeError:
+                    return False
+                if comparator == '==' and str(actual_value) != value:
+                    return False
+                elif comparator == '!=' and str(actual_value) == value:
+                    return False
+        return True
+
+
 
 def generate_ip_redirect_rule(target_ip, redirect_ip):
     """
@@ -143,3 +209,19 @@ def generate_dns_log_rule(log_file_name, dns_port=DNS_PORT):
             'log_file_name': log_file_name,
             'dns_port': dns_port
         })
+
+
+def generate_packet_drop_rule(filter_string):
+    string_filterer = StringPacketFilter(filter_string)
+
+    def drop_packet(scapy_packet):
+        if string_filterer.does_packet_match(scapy_packet):
+            raise DropPacketException
+        else:
+            return scapy_packet
+
+    return ProtocolFilter(
+        filter_function=drop_packet,
+        name='drop_packets',
+        keyword_arguments={'filter_string':filter_string}
+    )
