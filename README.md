@@ -9,7 +9,8 @@ BACKEND
 * display and remove rules
 features:
   * PCAP
-  * Subprocesses instead of threads (CR)
+  * throw exceptions in json functions for frontend display
+  * add drop packet rule
   
 request_rules_list_json = {
   "node_id":"mac_of_node"
