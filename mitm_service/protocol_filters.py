@@ -144,7 +144,7 @@ def generate_dns_reassign_rule(domain_name, new_ip, dns_port=DNS_PORT):
     new_ip = dnslib.dns.A(new_ip)
 
     def disrupt_dns_traffic(scapy_pkt):
-        if UDP not in scapy_pkt or scapy_pkt[UDP].sport != dns_port:
+        if UDP not in scapy_pkt or str(scapy_pkt[UDP].sport) != str(dns_port):
             return scapy_pkt
 
         record = dnslib.DNSRecord.parse(bytes(scapy_pkt[UDP].payload))
@@ -185,7 +185,7 @@ def generate_dns_log_rule(log_file_name, dns_port=DNS_PORT):
     """
 
     def log_dns_queries(scapy_pkt):
-        if UDP not in scapy_pkt or scapy_pkt[UDP].dport != dns_port:
+        if UDP not in scapy_pkt or str(scapy_pkt[UDP].dport) != str(dns_port):
             return scapy_pkt
 
         udp_payload = bytes(scapy_pkt[UDP].payload)
