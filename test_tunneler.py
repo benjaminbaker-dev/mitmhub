@@ -18,7 +18,7 @@ def main():
     #log_dns_rule = protocol_filters.generate_dns_log_rule(log_file)
     #redirect_dns_filter = protocol_filters.generate_dns_reassign_rule('www.amazon.com', '104.16.41.71')
 
-    drop_packets = protocol_filters.generate_packet_drop_rule('ICMP')
+    drop_packets = protocol_filters.generate_packet_drop_rule('UDP dport == 52')
     mitm.add_filter(0, drop_packets)
 
     mitm.start_mitm()

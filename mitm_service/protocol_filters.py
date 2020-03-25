@@ -71,6 +71,8 @@ class StringPacketFilter:
             field_name is a valid field for that layer (ex.: src, dst, sport, dport, etc.). Validity depends on the layername
             comparator is == or !=
             value is the value to check
+            A filter can also just be a layer name, in which case, the filter just checks for the existence of that layer
+            Each individual filter is seperated by "&&"
         """
         self.string_filters = type(self).parse_string_filter(string_filters)
 
