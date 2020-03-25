@@ -11,16 +11,30 @@ DNS_RESPONSE = 1
 DNS_TYPE_IPV4 = 1
 DNS_TYPE_IPV6 = 28
 
+class ProtocolFilter:
+    """
+    Class to wrap the protocol filter functions so that we can remember the parameters they were constructed with
+    """
+    def __init__(self, filter_function, name = None, keyword_arguments=None):
+        """
+        :param filter_function: the function to call. expects a scapy packet and returns a scapy packet
+        :param name: the display name of the function
+        :param keyword_arguments: the keyword arguments this function was called with
+        """
+        self.filter_function = filter_function
+        self.name = name or ""
+        self.keyword_arguments = keyword_arguments or {}
+
+    def __call__(self, scapy_pkt):
+        return self.filter_function(scapy_pkt)
 
 def generate_ip_redirect_rule(target_ip, redirect_ip):
     """
     Factory function to generate a filter that swaps ips
     :param target_ip: the dest ip to swap from
     :param redirect_ip: the source ip to swap to
-    :return: a filter function (takes a scapy packet, returns a scapy packet)
+    :return: a filter function callable (takes a scapy packet, returns a scapy packet)
     """
-    target_ip = inet_aton(target_ip)
-    redirect_ip = inet_aton(redirect_ip)
 
     def disrupt_ip_traffic(scapy_pkt):
         if IP not in scapy_pkt:
@@ -41,7 +55,13 @@ def generate_ip_redirect_rule(target_ip, redirect_ip):
 
         return scapy_pkt
 
-    return disrupt_ip_traffic
+    return ProtocolFilter(
+        filter_function=disrupt_ip_traffic,
+        name='redirect_ip_addresses',
+        keyword_arguments={
+            'target_ip': target_ip,
+            'redirect_ip': redirect_ip
+        })
 
 
 def generate_dns_reassign_rule(domain_name, new_ip, dns_port=DNS_PORT):
@@ -79,10 +99,17 @@ def generate_dns_reassign_rule(domain_name, new_ip, dns_port=DNS_PORT):
 
         return scapy_pkt
 
-    return disrupt_dns_traffic
+    return ProtocolFilter(
+        filter_function=disrupt_dns_traffic,
+        name='reassign_dns_resolution',
+        keyword_arguments={
+            'domain_name': domain_name,
+            'new_ip': new_ip,
+            'dns_port': dns_port
+        })
 
 
-def generate_dns_log_rule(log_file_object, dns_port=DNS_PORT):
+def generate_dns_log_rule(log_file_name, dns_port=DNS_PORT):
     """
     Factory function to generate filters that log all dns queries
     :param log_file_object: The file object (writeable) to log the queries to
@@ -97,17 +124,22 @@ def generate_dns_log_rule(log_file_object, dns_port=DNS_PORT):
 
         record = dnslib.DNSRecord.parse(udp_payload)
         if record.header.qr != DNS_QUERY:
-            print(record.qr)
             return scapy_pkt
 
         first_question = record.get_q()
-
-        log_file_object.write('{}:\t{} asked for {}\n'.format(
-            time.ctime(),
-            scapy_pkt[IP].src,
-            str(first_question.get_qname())
-        ))
+        with open(log_file_name, 'w') as log_file:
+            log_file.write('{}:\t{} asked for {}\n'.format(
+                time.ctime(),
+                scapy_pkt[IP].src,
+                str(first_question.get_qname())
+            ))
 
         return scapy_pkt
 
-    return log_dns_queries
+    return ProtocolFilter(
+        filter_function=log_dns_queries,
+        name='log_dns_queries',
+        keyword_arguments={
+            'log_file_name': log_file_name,
+            'dns_port': dns_port
+        })
