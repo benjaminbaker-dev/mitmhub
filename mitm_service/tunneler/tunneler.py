@@ -78,14 +78,14 @@ class L2Tunnel:
         """
 
         # if its coming from the gateway, its meant for the target
-        if scapy_pkt[Ether].src == self.gateway_mac:
-            scapy_pkt[Ether].src = self.my_mac
-            scapy_pkt[Ether].dst = self.target_mac
+        if scapy_pkt[Ether].src.lower() == self.gateway_mac.lower():
+            scapy_pkt[Ether].src = self.my_mac.lower()
+            scapy_pkt[Ether].dst = self.target_mac.lower()
 
         # if its coming from the target, its meant for the gateway
-        elif scapy_pkt[Ether].src == self.target_mac:
-            scapy_pkt[Ether].src = self.my_mac
-            scapy_pkt[Ether].dst = self.gateway_mac
+        elif scapy_pkt[Ether].src.lower() == self.target_mac.lower():
+            scapy_pkt[Ether].src = self.my_mac.lower()
+            scapy_pkt[Ether].dst = self.gateway_mac.lower()
 
         return scapy_pkt
 

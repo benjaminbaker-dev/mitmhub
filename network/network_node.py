@@ -25,11 +25,11 @@ class NetworkNode:
         self.tags = tags or {}
 
         self.mitm_service = MITMService(
-            self.interface,
-            self.ip,
-            self.gateway_ip,
-            self.mac,
-            self.gateway_mac
+            interface=self.interface,
+            target_ip=self.ip,
+            gateway_ip=self.gateway_ip,
+            target_mac=self.mac,
+            gateway_mac=self.gateway_mac
         )
 
     @property

@@ -56,7 +56,7 @@ class Network:
         :return: node on this network with the given mac, or None if none match
         """
         for node in self.nodes:
-            if node.mac == mac_addr:
+            if node.mac.lower() == mac_addr.lower():
                 return node
         return None
 
