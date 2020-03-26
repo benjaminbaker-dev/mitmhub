@@ -16,6 +16,16 @@ def get_network():
         return jsonify({"status": "Error: {}".format(e)})
 
 
+@app.route("/api/refresh", methods=["GET"])
+@cross_origin()
+def refresh_network():
+    try:
+        network.refresh_network()
+        return jsonify({"status": "Success"})
+    except Exception as e:
+        return jsonify({"status": "Error: {}".format(e)})
+
+
 @app.route("/api/fill_tags", methods=["POST"])
 @cross_origin()
 def get_tags():
