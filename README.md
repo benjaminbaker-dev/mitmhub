@@ -1,16 +1,15 @@
 mitmhub: Libraries and functionality to automatically perform Man-In-The-Middle (mitm) attacks in python
+https://www.electron.build/
 
 
 FRONTEND:
-* add indicator to whether mitm is running or not: change color
-* display and remove rules
+* add rule param description
 
 BACKEND
-* display and remove rules
+* add rule param description
 features:
   * PCAP
-  * throw exceptions in json functions for frontend display
-  * add drop packet rule
+
   
 request_rules_list_json = {
   "node_id":"mac_of_node"
