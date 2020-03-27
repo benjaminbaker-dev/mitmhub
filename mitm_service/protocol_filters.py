@@ -227,3 +227,90 @@ def generate_packet_drop_rule(filter_string):
         name='drop_packets',
         keyword_arguments={'filter_string':filter_string}
     )
+
+def generate_tcp_disturbance(src_ip, new_payload):
+    def disturb_tcp_packet(scapy_pkt):
+        if TCP not in scapy_pkt or scapy_pkt[IP].src != src_ip:
+            return scapy_pkt
+
+        if len(bytes(scapy_pkt[TCP].payload)) == 0:
+            return scapy_pkt
+
+        payload_delta = len(new_payload) - len(bytes(scapy_pkt[TCP].payload))
+        print(scapy_pkt[TCP].seq, len(scapy_pkt[TCP].payload))
+
+        #scapy_pkt[TCP].seq += payload_delta
+        scapy_pkt[TCP].chksum = 0
+        scapy_pkt[TCP].payload = Raw(new_payload)
+
+        scapy_pkt[IP].len += payload_delta
+        scapy_pkt[IP].chksum = 0
+
+        return scapy_pkt
+
+    return ProtocolFilter(
+        filter_function=disturb_tcp_packet,
+        name='disturb_tcp',
+        keyword_arguments={'src_ip':src_ip, 'new_payload': new_payload}
+    )
+
+def generate_http_replace_filter(domain_to_redirect, new_domain):
+    HTTP_PORTS = (80, 8080)
+
+    ip_to_redirect = socket.gethostbyname(domain_to_redirect)
+
+    domain_to_redirect = domain_to_redirect.encode('ascii')
+    new_domain = new_domain.encode('ascii')
+    http_redirect_content = '\n'\
+                            '<html>'\
+                            '\n<head>'\
+                            '\n<title>Moved</title>' \
+                            '\n</head>'\
+                            '\n<body>'\
+                            '\n<h1>Moved</h1>'\
+                            '\n<p>This page has moved to <a href="http://{new_domain}/">http://{new_domain}/</a>.</p>' \
+                            '\n</body>' \
+                            '\n</html>'.format(new_domain=new_domain.decode())
+    http_redirect_header = 'HTTP/1.1 301 Moved Permanently\r\n'\
+                            'Location: {new_domain}/\r\n'\
+                            'Content-Type: text/html\r\n'\
+                            'Content-Length: {content_length}\r\n'.format(new_domain=new_domain.decode(), content_length=len(http_redirect_content))
+    http_redirect = http_redirect_header.encode() + http_redirect_content.encode()
+
+
+
+    def static_http_rewrite(scapy_pkt):
+        if TCP not in scapy_pkt:
+            return scapy_pkt
+
+        if scapy_pkt[TCP].sport not in HTTP_PORTS:
+            return scapy_pkt
+
+        http_payload = bytes(scapy_pkt[TCP].payload)
+        if http_payload is None or len(http_payload) == 0:
+            return scapy_pkt
+
+        #if domain_to_redirect not in http_payload:
+         #   return scapy_pkt
+
+        original_payload_length = len(http_payload)
+
+        payload_delta = len(http_redirect) - original_payload_length
+
+        scapy_pkt[TCP].payload = Raw(http_redirect)
+        print('{} + {}'.format(scapy_pkt[TCP].seq, payload_delta))
+        #scapy_pkt[TCP].seq += payload_delta
+        scapy_pkt[TCP].chksum = 0
+
+        scapy_pkt[IP].len += payload_delta
+        scapy_pkt[IP].chksum = 0
+        #print('\nOriginal:', http_payload)
+        #print('\nModified:', scapy_pkt[TCP].payload)
+        #scapy_pkt.show()
+        return scapy_pkt
+
+    return ProtocolFilter(
+        filter_function=static_http_rewrite,
+        name='dynamic_http_domain_rewrite',
+        keyword_arguments={'redirected_domain': domain_to_redirect, 'new_domain': new_domain}
+    )
