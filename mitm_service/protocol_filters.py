@@ -23,20 +23,20 @@ class ProtocolFilter:
     Class to wrap the protocol filter functions so that we can remember the parameters they were constructed with
     """
     PARAM_EXPLANATION = {
-        'redirect_ip_addresses': 'target_ip: Packets to this IP are redirected to the redirect_ip'
+        'redirect_ip_addresses': 'target_ip: Packets to this IP are redirected to the redirect_ip\n'
                                  'redirect_ip: Packets from target IP are redirected to this IP',
-        'reassign_dns_resolution': 'domain_name: DNS responses to this domain name are reassigned to new_ip'
-                                   'new_ip: DNS responses to domain_name are reassigned to this IP'
+        'reassign_dns_resolution': 'domain_name: DNS responses to this domain name are reassigned to new_ip\n'
+                                   'new_ip: DNS responses to domain_name are reassigned to this IP\n'
                                    'dns_port: The port to recognize DNS responses on. Defaults to 53',
-        'log_dns_queries': 'log_file_name: The path to the file to log all DNS queries to'
+        'log_dns_queries': 'log_file_name: The path to the file to log all DNS queries to\n'
                            'dns_port: The port to recognize DNS requests on. Defaults to 53',
-        'drop_packets': 'string_filter: A filter that describes which packets to drop. A single filter is of'
-                        '    the form <layer_name> <field_name> <comparator> <value>, where layer_name is '
-                        '    the name of the scapy layer you want to filter, field name is the field whose'
-                        '    value you want to filter by, comparator is either ==/!=, and value is the value'
-                        '    you want to compare the layer/field to. Alternatively, a filter can just be the '
-                        '    name of a layer, in which case the filter just checks for the existence of said '
-                        '    layer. string_filter is any number of these single filters, seperated by "&&".'
+        'drop_packets': 'string_filter: A filter that describes which packets to drop. A single filter is of\n'
+                        '    the form <layer_name> <field_name> <comparator> <value>, where layer_name is\n'
+                        '    the name of the scapy layer you want to filter, field name is the field whose\n'
+                        '    value you want to filter by, comparator is either ==/!=, and value is the value\n'
+                        '    you want to compare the layer/field to. Alternatively, a filter can just be the\n'
+                        '    name of a layer, in which case the filter just checks for the existence of said\n'
+                        '    layer. string_filter is any number of these single filters, seperated by "&&".\n'
                         '    The filter drops a packet only if each individual filter in string_filter is true',
 
     }
