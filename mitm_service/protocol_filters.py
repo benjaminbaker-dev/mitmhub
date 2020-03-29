@@ -3,6 +3,7 @@ from mitm_service.tunneler.tunneler import DropPacketException
 from scapy.all import *
 import dnslib
 import time
+import re
 
 DNS_PORT = 53
 
@@ -17,6 +18,8 @@ class InvalidStringFilter(Exception):
     Exception to raise if string filter is invalid
     """
     pass
+
+COMBINE_WHITESPACE = re.compile(r"\s+")
 
 class ProtocolFilter:
     """
@@ -72,7 +75,7 @@ class StringPacketFilter:
         individual_filters = string_filter.split('&&')
         parsed_filters = []
         for filter_string in individual_filters:
-            filter_params = filter_string.split(" ")
+            filter_params = filter_string.strip().split(" ")
             if len(filter_params) not in (1, 4):
                 raise InvalidStringFilter(
                     "Invalid Filter: {}\nFilter should have <layername> (<field_name> <comparator> <value>)".format(
@@ -99,6 +102,8 @@ class StringPacketFilter:
             A filter can also just be a layer name, in which case, the filter just checks for the existence of that layer
             Each individual filter is seperated by "&&"
         """
+        string_filters = COMBINE_WHITESPACE.sub(' ', string_filters).strip()
+
         self.string_filters = type(self).parse_string_filter(string_filters)
 
     def does_packet_match(self, scapy_pkt):
