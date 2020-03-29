@@ -10,8 +10,8 @@ import json
 
 class NetworkNode:
     SUPPORTED_FILTERS = {
-        'reassign_dns_results': filters.generate_dns_reassign_rule,
-        'log_dns_requests': filters.generate_dns_log_rule,
+        'reassign_dns_resolution': filters.generate_dns_reassign_rule,
+        'log_dns_queries': filters.generate_dns_log_rule,
         'redirect_ip_addresses': filters.generate_ip_redirect_rule,
         'drop_packets': filters.generate_packet_drop_rule
     }
@@ -80,14 +80,20 @@ class NetworkNode:
         """
         Return a json of this node's supported filters of form:
         {
-        filter_name:[filter_param_1, filter_param_2, ...],
+        filter_name:{
+            filter_params: [filter_param_1, filter_param_2, ...],
+            param_explanation: <string>
+            },
         ...
         }
         :return: dict
         """
         response = {}
         for filter_name, filter_function in type(self).SUPPORTED_FILTERS.items():
-            response[filter_name] = list(inspect.signature(filter_function).parameters)
+            response[filter_name] = {
+                'filter_params': list(inspect.signature(filter_function).parameters),
+                'param_explanation': filters.ProtocolFilter.PARAM_EXPLANATION[filter_name]
+            }
         return response
 
     def json_query_active_filters(self):
