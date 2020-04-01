@@ -97,5 +97,17 @@ def stop_mitm():
         return jsonify({"status": "Error: {}".format(e)})
 
 
+@app.route("/shutdown_server", methods=["POST"])
+@cross_origin()
+def stop_server():
+    func = request.environ.get('werkzeug.server.shutdown')
+    auth = request.json["id"] == "YEET"
+
+    if func and auth:
+        func()
+
+    return jsonify({})
+
+
 if __name__ == '__main__':
     app.run(port=9846)
