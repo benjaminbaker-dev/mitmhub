@@ -2,8 +2,10 @@ import pip._internal
 import os
 import argparse
 
-PYTHON_REQUIREMENTS_PATH = './requirements/requirements.txt'
-BINARY_REQUIREMENTS_PATH = './requirements/binary_requirements.txt'
+CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
+
+PYTHON_REQUIREMENTS_PATH = CURRENT_DIR + '/requirements/requirements.txt'
+BINARY_REQUIREMENTS_PATH = CURRENT_DIR + '/requirements/binary_requirements.txt'
 LINUX_INSTALL_BINARY_COMMAND = 'sudo apt-get install {binary_name}'
 OSX_INSTALL_BINARY_COMMAND = 'brew install {binary_name}'
 INSTALL_BINARY_COMMANDS = {
